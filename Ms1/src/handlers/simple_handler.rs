@@ -48,4 +48,4 @@ pub async fn call_external_service() -> Json<Message> {
             message_text: "Failed to reach external service".into(),
         })                                                                              
     }                                                                                   
-}  
+}
