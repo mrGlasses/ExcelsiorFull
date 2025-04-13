@@ -6,13 +6,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_call_external_service_mock() {
-        let app = Router::new().route("/external", axum::routing::get(|| async {
+        let app = Router::new().route("/itsaRainyDay", axum::routing::get(|| async {
             axum::Json(ExternalResponse { message: "mocked response".to_string() })
         }));
 
         let response = app.oneshot(
             Request::builder()
-                .uri("/external")
+                .uri("/itsaRainyDay")
                 .body(Body::empty())
                 .unwrap(),
         ).await.unwrap();
