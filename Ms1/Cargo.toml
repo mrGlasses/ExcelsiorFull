@@ -9,7 +9,7 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 axum = "0.6"
 tower = "0.4"
-tower-http = { version = "0.4", features = ["trace", "compression-full", "limit"] }
+tower-http = { version = "0.4", features = ["trace", "compression-full", "limit", "timeout"] }
 sqlx = { version = "0.7", features = ["macros", "mysql", "time", "runtime-tokio-native-tls"] }
 #time = {version = "0.3.22", default-features = false, features = ["formatting", "macros"]}
 serde = { version = "1", features = ["derive"] }
@@ -18,3 +18,4 @@ dotenv = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.11", features = ["json"] }
+anyhow = "1.0.97"

@@ -3,9 +3,11 @@ use axum::{routing::get, Router};
 use dotenv::dotenv;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::signal;
 use tower_http::compression::CompressionLayer;
 use tower_http::limit::RequestBodyLimitLayer;
+use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info; //#-#
 
@@ -13,7 +15,8 @@ mod db;
 mod handlers;
 mod routes;
 mod state;
-mod models;
+mod domain;
+mod engine;
 
 #[tokio::main]
 async fn main() {
@@ -27,7 +30,7 @@ async fn main() {
         db_pool: Arc::new(db_pool),
     };
 
-    let app = create_routes(app_state).layer(TraceLayer::new_for_http()); //?
+    let app = create_routes(app_state).layer((TraceLayer::new_for_http(), TimeoutLayer::new(Duration::from_secs(60)))); //?
 
     let pre_port = std::env::var("MS_PORT").expect("MS_PORT must be set.");
     let port = pre_port.parse().expect("MS_PORT must be a number.");

@@ -10,3 +10,5 @@ pub fn create_routes(state: AppState) -> Router {
         .route("/itsaRainyDay", get(simple_handler::call_external_service))
         .with_state(state)
 }
+
+//more than 1 route file? search for "axum merge routes"
