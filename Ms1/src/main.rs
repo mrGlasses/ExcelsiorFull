@@ -1,5 +1,3 @@
-use crate::routes::create_routes;
-use axum::{routing::get, Router};
 use dotenv::dotenv;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -9,7 +7,12 @@ use tower_http::compression::CompressionLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
-use tracing::info; //#-#
+use tracing::{info, warn, error};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use crate::routes::create_routes;
+use crate::utils::un_utils::start_message;
+
+//#-#
 
 mod db;
 mod handlers;
@@ -17,11 +20,12 @@ mod routes;
 mod state;
 mod domain;
 mod engine;
+mod utils;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    tracing_subscriber::fmt::init();
+    setup_tracing().await;
 
     let db_pool = db::connection::init_db()
         .await
@@ -37,14 +41,16 @@ async fn main() {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
-    tracing::debug!("listening on {}", addr);
+    //info!("listening on {}", addr); //tracing mode
 
     let server = axum::Server::bind(&addr).serve(app.into_make_service());
+
+    start_message(pre_port).await; //
 
     let graceful = server.with_graceful_shutdown(shutdown_signal()); //#-#
 
     if let Err(err) = graceful.await {
-        eprintln!("server error: {}", err); //#-#
+        error!("server error: {}", err); //#-#
     }
 }
 
@@ -71,5 +77,15 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
-    println!("signal received, starting graceful shutdown"); //#-#
+    warn!("signal received, starting graceful shutdown"); //#-#
+}
+
+pub async fn setup_tracing() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info".into())
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 }
