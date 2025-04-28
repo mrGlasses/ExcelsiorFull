@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-axum = "0.6"
+axum = { version = "0.6", features = ["headers"] }
 tower = "0.4"
 tower-http = { version = "0.4", features = ["trace", "compression-full", "limit", "timeout"] }
 sqlx = { version = "0.8.1", features = ["macros", "mysql", "time", "runtime-tokio-native-tls"] }
@@ -19,3 +19,4 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.11", features = ["json"] }
 anyhow = "1.0.97"
+headers = "0.4.0"
