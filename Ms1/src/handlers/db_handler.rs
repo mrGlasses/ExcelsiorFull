@@ -7,7 +7,7 @@ use crate::engine::db_engine::create_user_db_call;
 use crate::state::AppState;
 
 
-pub async fn get_users(State(state): State<AppState>) -> Response { //Response can be a variant - https://docs.rs/axum/latest/axum/response/index.html#returning-different-response-types
+pub async fn get_users(State(state): State<AppState>) -> Response {
     info!("get_users called");
     let vec_users = engine::db_engine::get_users_db_call(State(state)).await;    
     match vec_users {

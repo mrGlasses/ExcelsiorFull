@@ -14,7 +14,7 @@ pub fn create_routes(state: AppState) -> Router {
         .route("/ping", get(simple_handler::get_pong))
         .route("/its-a-rainy-day", get(simple_handler::call_external_service))
         .route("/protected-enter", get(simple_handler::protected_route))
-        .route("/params/:param_1/another_p/:param_2", get(simple_handler::get_params))
+        .route("/params/:param_1/another_p/:param_2", get(simple_handler::get_params)) // localhost/params/1/another_p/textTest
         .route("/question_separator", get(simple_handler::get_question)) // localhost/question_separator?name=Jack&age=25&active=true
         .layer(
             TraceLayer::new_for_http()

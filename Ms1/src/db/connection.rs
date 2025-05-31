@@ -15,3 +15,22 @@ pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
         .connect(&database_builder)
         .await
 }
+
+/*################################################################################################
+
+        ----------------------------------------TESTS-----------------------------------
+
+#################################################################################################*/
+
+// Note: Unit testing database connections are generally not recommended because:
+// 1. It requires a real database connection which makes it an integration test, not unit test
+// 2. It depends on external resources and environment variables
+// 3. It can be flaky and slow down the test suite
+//
+// Instead, consider:
+// - Writing integration tests in a separate directory
+// - Using a test database or Docker container for integration testing
+// - Mocking the database connection for unit tests of components that use this connection
+// - Testing the connection in your deployment pipeline
+
+

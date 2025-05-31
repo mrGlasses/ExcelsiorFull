@@ -8,6 +8,7 @@ pub struct NewUser {
 }
 
 #[derive(Serialize, Deserialize, FromRow)]
+#[derive(Clone)]
 pub struct User {
     pub uid: i32,
     pub name: String,

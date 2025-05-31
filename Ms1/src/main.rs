@@ -11,8 +11,7 @@ use tracing::{info, warn, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::routes::create_routes;
 use crate::utils::un_utils::start_message;
-
-//#-#
+use crate::engine::db_engine::DbPool;
 
 mod db;
 mod handlers;
@@ -31,21 +30,23 @@ async fn main() {
         .await
         .expect("Failed to connect to DB");
     let app_state = state::AppState {
-        db_pool: Arc::new(db_pool),
+        db_pool: Arc::new(DbPool::Real(db_pool)),
     };
 
-    let app = create_routes(app_state).layer((TraceLayer::new_for_http(), TimeoutLayer::new(Duration::from_secs(60)))); //?
+    let app = create_routes(app_state).layer(
+        (TraceLayer::new_for_http(), 
+         TimeoutLayer::new(Duration::from_secs(60)))
+    );
 
     let pre_port = std::env::var("MS_PORT").expect("MS_PORT must be set.");
     let port = pre_port.parse().expect("MS_PORT must be a number.");
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
-    //info!("listening on {}", addr); //tracing mode
-
     let server = axum::Server::bind(&addr).serve(app.into_make_service());
 
-    start_message(pre_port).await; //
+    //info!("Excelsior listening on {}", addr); //tracing mode startup
+    start_message(addr.to_string()).await; //default mode startup
 
     let graceful = server.with_graceful_shutdown(shutdown_signal()); //#-#
 
