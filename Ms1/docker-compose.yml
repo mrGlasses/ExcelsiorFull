@@ -1,0 +1,111 @@
+version: "3.8"
+services:
+  db:
+    container_name: mariadb
+    image: mariadb:latest
+    restart: always
+    ports:
+      - "127.0.0.1:1021:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-ENNBA}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    container_name: mariadbadm
+    image: adminer
+    restart: always
+    ports:
+      - "127.0.0.1:1333:8080"
+    depends_on:
+      - db
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-dice}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-1sN1c3}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    ports:
+      - "127.0.0.1:5555:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME:-dice}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-1sN1c3}
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH: "false"
+      ME_CONFIG_MONGODB_URL: "mongodb://${MONGO_INITDB_ROOT_USERNAME:-dice}:${MONGO_INITDB_ROOT_PASSWORD:-1sN1c3}@mongodb:27017/"
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    command: redis-server --requirepass "${REDIS_PASSWORD:-1sN1c#}"
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-1sN1c#}
+
+  redis-commander:
+    container_name: redis-commander
+    image: ghcr.io/joeferner/redis-commander:latest
+    restart: always
+    environment:
+      REDIS_HOSTS: "local:redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-1sN1c#}
+    ports:
+      - "127.0.0.1:1111:8081"
+    depends_on:
+      - redis
+
+  tarpaulin:
+    image: xd009642/tarpaulin
+    container_name: rust-coverage
+    working_dir: /volume
+    volumes:
+      - ./:/volume
+    depends_on:
+      - db
+      - mongodb
+      - redis
+    environment:
+      SOME_CONFIG: config
+      DATABASE_NAME: DEV_ENVIRONMENT
+      DATABASE_HOST: db
+      DATABASE_USER: root
+      DATABASE_PSWD: ENNBA
+      DATABASE_PORT: 3306
+      MS_PORT: 0
+      EXTERNAL_SERVICE_URL: http://host.docker.internal:3001
+      RUST_LOG: debug
+    command: >
+      /bin/sh -c "mkdir -p /volume/coverage && cargo tarpaulin --out Xml --output-dir /volume/coverage/tarpaulin-report.xml --timeout 120 --ignore-tests --exclude-files 'tests/*'"
+    profiles: ["coverage"]
+
+volumes:
+  mariadb-data:
+  mongo-data:
+  redis-data:
