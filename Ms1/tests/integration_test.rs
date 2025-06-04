@@ -1,6 +1,5 @@
 use std::net::TcpListener;
 use axum::http::StatusCode;
-use tower::ServiceExt;
 use std::sync::Arc;
 use sqlx::MySqlPool;
 use dotenv::dotenv;
@@ -77,7 +76,7 @@ async fn test_server_health_check() {
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/ping", address))
+        .get(format!("{}/ping", address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -92,7 +91,7 @@ async fn test_protected_route_unauthorized() {
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/protected-enter", address))
+        .get(format!("{}/protected-enter", address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -106,7 +105,7 @@ async fn test_protected_route_authorized() {
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/protected-enter", address))
+        .get(format!("{}/protected-enter", address))
         .header("X-Custom-Header", "secret-value")
         .send()
         .await
@@ -123,7 +122,7 @@ async fn test_get_users() {
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/users", address))
+        .get(format!("{}/users", address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -141,7 +140,7 @@ async fn test_create_user() {
     let client = reqwest::Client::new();
 
     let response = client
-        .post(&format!("{}/users", address))
+        .post(format!("{}/users", address))
         .json(&serde_json::json!({
             "name": "Test User"
         }))
@@ -160,7 +159,7 @@ async fn test_get_params() {
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/params/42/another_p/test-param", address))
+        .get(format!("{}/params/42/another_p/test-param", address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -177,7 +176,7 @@ async fn test_get_question_with_filters() {
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/question_separator", address))
+        .get(format!("{}/question_separator", address))
         .query(&[("name", "John"), ("age", "30"), ("active", "true")])
         .send()
         .await
@@ -189,20 +188,3 @@ async fn test_get_question_with_filters() {
     assert!(body.contains("30"));
     assert!(body.contains("true"));
 }
-
-//#[tokio::test]
-// async fn test_graceful_shutdown() {
-//     let address = spawn_app().await;
-//     let client = reqwest::Client::new();
-// 
-//     // Make sure server is up
-//     let response = client
-//         .get(&format!("{}/pong", address))
-//         .send()
-//         .await
-//         .expect("Failed to execute request.");
-//     assert!(response.status().is_success());
-// 
-//     // Server will be dropped at the end of this test
-//     // and should shut down gracefully
-// } 

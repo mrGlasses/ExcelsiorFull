@@ -1,5 +1,4 @@
 use sqlx::{Row, Pool, MySql};
-use std::sync::Arc;
 #[cfg(test)]
 use mockall::automock;
 use anyhow::Result;

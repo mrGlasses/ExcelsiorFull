@@ -1,5 +1,4 @@
 use crate::domain::general::{Message, Params, FilterParams};
-use serde_json::json;
 
 #[test]
 fn test_message_default() {

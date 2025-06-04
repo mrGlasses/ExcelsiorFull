@@ -13,6 +13,6 @@ pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
 
     MySqlPoolOptions::new()
         .max_connections(5)
-        .connect(&database_builder)
+        .connect(database_builder)
         .await
 }

@@ -29,8 +29,8 @@ async fn test_call_external_service_ok() {
             .header("content-type", "text/html; charset=UTF-8")
             .body(r#"{"code": 200, "message_text": "PONG"}"#);
     }).await;
-    
-    std::env::set_var("EXTERNAL_SERVICE_URL", server.url(""));
+
+    unsafe { std::env::set_var("EXTERNAL_SERVICE_URL", server.url("")); }
     
     let response = call_external_service().await;
 
@@ -41,7 +41,7 @@ async fn test_call_external_service_ok() {
 
 #[tokio::test]
 async fn test_call_external_service_fail() {
-    std::env::set_var("EXTERNAL_SERVICE_URL", "localhost:99999");
+    unsafe { std::env::set_var("EXTERNAL_SERVICE_URL", "localhost:99999"); }
     
     let response = call_external_service().await;
 
