@@ -1,29 +1,26 @@
-use axum::{Json, extract::State, http::StatusCode};
-use axum::response::{IntoResponse, Response};
-use tracing::{info, warn, error};
 use crate::domain::database::NewUser;
 use crate::engine;
 use crate::engine::db_engine::create_user_db_call;
 use crate::state::AppState;
-
+use axum::response::{IntoResponse, Response};
+use axum::{extract::State, http::StatusCode, Json};
+use tracing::{error, info, warn};
 
 pub async fn get_users(State(state): State<AppState>) -> Response {
     info!("get_users called");
-    let vec_users = engine::db_engine::get_users_db_call(State(state)).await;    
+    let vec_users = engine::db_engine::get_users_db_call(State(state)).await;
     match vec_users {
         Ok(users) => {
             warn!("Users returned");
-            (
-                StatusCode::OK,
-                Json(users)
-            ).into_response()
+            (StatusCode::OK, Json(users)).into_response()
         }
         Err(err) => {
             error!("Error occurred: {}", err);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("failed to get users: {}", err).into_response()
-            ).into_response()
+                format!("failed to get users: {}", err).into_response(),
+            )
+                .into_response()
         }
     }
 }
@@ -33,17 +30,15 @@ pub async fn create_user(State(state): State<AppState>, Json(payload): Json<NewU
     match create_user_db_call(State(state), payload.name.clone()).await {
         Ok(_) => {
             warn!("New user created");
-            (
-                StatusCode::CREATED,
-                "CREATED"
-            ).into_response()
+            (StatusCode::CREATED, "CREATED").into_response()
         }
         Err(err) => {
             error!("Error occurred: {}", err);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("failed to insert user: {}", err).into_response()
-            ).into_response()
+                format!("failed to insert user: {}", err).into_response(),
+            )
+                .into_response()
         }
     }
 }

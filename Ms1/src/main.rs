@@ -1,3 +1,6 @@
+use crate::engine::db_engine::DbPool;
+use crate::routes::create_routes;
+use crate::utils::un_utils::start_message;
 use dotenv::dotenv;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -5,18 +8,15 @@ use std::time::Duration;
 use tokio::signal;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
-use tracing::{warn, error};
+use tracing::{error, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::routes::create_routes;
-use crate::utils::un_utils::start_message;
-use crate::engine::db_engine::DbPool;
 
 mod db;
+mod domain;
+mod engine;
 mod handlers;
 mod routes;
 mod state;
-mod domain;
-mod engine;
 mod utils;
 
 #[tokio::main]
@@ -31,10 +31,10 @@ async fn main() {
         db_pool: Arc::new(DbPool::Real(db_pool)),
     };
 
-    let app = create_routes(app_state).layer(
-        (TraceLayer::new_for_http(), 
-         TimeoutLayer::new(Duration::from_secs(60)))
-    );
+    let app = create_routes(app_state).layer((
+        TraceLayer::new_for_http(),
+        TimeoutLayer::new(Duration::from_secs(60)),
+    ));
 
     let pre_port = std::env::var("MS_PORT").expect("MS_PORT must be set.");
     let port = pre_port.parse().expect("MS_PORT must be a number.");
@@ -82,8 +82,7 @@ async fn shutdown_signal() {
 pub async fn setup_tracing() {
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into())
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

@@ -1,17 +1,14 @@
+use crate::domain::general::{FilterParams, Message, Params};
 use axum::{
     extract::{Path, Query},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use tracing::{info, warn, error};
-use crate::domain::general::{FilterParams, Message, Params};
+use tracing::{error, info, warn};
 
 pub async fn get_pong() -> Response {
     info!("PONG!");
-    (
-        StatusCode::OK, 
-        "PONG!"
-    ).into_response()
+    (StatusCode::OK, "PONG!").into_response()
 }
 
 pub async fn call_external_service() -> Response {
@@ -32,16 +29,18 @@ pub async fn call_external_service() -> Response {
             });
             (
                 StatusCode::from_u16(json.code as u16).unwrap_or(StatusCode::EXPECTATION_FAILED),
-                format!("{} !!", json.message_text)
-            ).into_response()
+                format!("{} !!", json.message_text),
+            )
+                .into_response()
         }
         Err(err) => {
             error!("Error response from external service: {}", err);
             (
-                StatusCode::EXPECTATION_FAILED, 
+                StatusCode::EXPECTATION_FAILED,
                 "Failed to reach external service",
-                ).into_response()
-        } 
+            )
+                .into_response()
+        }
     }
 }
 
@@ -51,17 +50,16 @@ pub async fn protected_route(headers: HeaderMap) -> Response {
         Some(header_value) if header_value == "secret-value" => {
             (StatusCode::OK, "Access Granted!").into_response()
         }
-        _ => (StatusCode::UNAUTHORIZED, "Invalid or missing header").into_response()
+        _ => (StatusCode::UNAUTHORIZED, "Invalid or missing header").into_response(),
     }
 }
 
-pub async fn get_params(
-    Path(Params { param_1, param_2 }): Path<Params>,
-) -> Response {
+pub async fn get_params(Path(Params { param_1, param_2 }): Path<Params>) -> Response {
     (
         StatusCode::OK,
-        format!("Parameter 1: {}, Parameter 2: {}", param_1, param_2)
-    ).into_response()
+        format!("Parameter 1: {}, Parameter 2: {}", param_1, param_2),
+    )
+        .into_response()
 }
 
 pub async fn get_question(Query(params): Query<FilterParams>) -> Response {
@@ -71,8 +69,5 @@ pub async fn get_question(Query(params): Query<FilterParams>) -> Response {
         params.age.unwrap_or_default(),
         params.active.unwrap_or_default()
     );
-    (
-        StatusCode::OK,
-        response
-    ).into_response()
+    (StatusCode::OK, response).into_response()
 }

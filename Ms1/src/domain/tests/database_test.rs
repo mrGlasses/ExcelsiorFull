@@ -6,7 +6,7 @@ fn test_new_user_deserialization() {
     let json_data = json!({
         "name": "John Doe"
     });
-    
+
     let new_user: NewUser = serde_json::from_value(json_data).unwrap();
     assert_eq!(new_user.name, "John Doe");
 }
@@ -24,13 +24,13 @@ fn test_user_serialization() {
         uid: 1,
         name: String::from("John Doe"),
     };
-    
+
     let serialized = serde_json::to_value(&user).unwrap();
     let expected = json!({
         "uid": 1,
         "name": "John Doe"
     });
-    
+
     assert_eq!(serialized, expected);
 }
 
@@ -40,7 +40,7 @@ fn test_user_deserialization() {
         "uid": 1,
         "name": "John Doe"
     });
-    
+
     let user: User = serde_json::from_value(json_data).unwrap();
     assert_eq!(user.uid, 1);
     assert_eq!(user.name, "John Doe");
@@ -52,9 +52,9 @@ fn test_user_clone() {
         uid: 1,
         name: String::from("John Doe"),
     };
-    
+
     let cloned_user = original_user.clone();
-    
+
     assert_eq!(original_user.uid, cloned_user.uid);
     assert_eq!(original_user.name, cloned_user.name);
 }
@@ -64,7 +64,7 @@ fn test_user_missing_fields() {
     let json_data = json!({
         "uid": 1
     });
-    
+
     let result = serde_json::from_value::<User>(json_data);
     assert!(result.is_err());
 }
@@ -75,7 +75,7 @@ fn test_user_invalid_types() {
         "uid": "not_a_number",
         "name": "John Doe"
     });
-    
+
     let result = serde_json::from_value::<User>(json_data);
     assert!(result.is_err());
-} 
+}

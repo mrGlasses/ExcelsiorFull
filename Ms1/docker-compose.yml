@@ -102,7 +102,7 @@ services:
       EXTERNAL_SERVICE_URL: http://host.docker.internal:3001
       RUST_LOG: debug
     command: >
-      /bin/sh -c "mkdir -p /volume/coverage && cargo tarpaulin --out Xml --output-dir /volume/coverage/tarpaulin-report.xml --timeout 120 --ignore-tests --exclude-files 'tests/*'"
+      /bin/sh -c "mkdir -p /volume/coverage && cargo tarpaulin --out Xml --output-dir /volume/coverage/tarpaulin-report.xml --timeout 120 --ignore-tests --exclude-files 'tests/*' --exclude-files 'src/main.rs'" 
     profiles: ["coverage"]
 
 volumes:

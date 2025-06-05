@@ -1,16 +1,11 @@
-use std::net::TcpListener;
 use axum::http::StatusCode;
-use std::sync::Arc;
-use sqlx::MySqlPool;
 use dotenv::dotenv;
+use sqlx::MySqlPool;
+use std::net::TcpListener;
+use std::sync::Arc;
 
 // Import the ms1 crate and its modules
-use ms1::{
-    db,
-    routes,
-    state::AppState,
-    engine::db_engine::DbPool,
-};
+use ms1::{db, engine::db_engine::DbPool, routes, state::AppState};
 
 // Helper function to set up the test environment
 fn setup_test_env() {
@@ -35,10 +30,9 @@ async fn spawn_app() -> String {
     setup_test_env();
 
     // Find a random available port
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .expect("Failed to bind random port");
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
-    
+
     // Set up test database connection using the same method as main app
     let pool = create_test_db_pool().await;
 
@@ -96,7 +90,10 @@ async fn test_protected_route_unauthorized() {
         .await
         .expect("Failed to execute request.");
 
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::OK),
+        StatusCode::UNAUTHORIZED
+    );
 }
 
 #[tokio::test]
@@ -111,7 +108,10 @@ async fn test_protected_route_authorized() {
         .await
         .expect("Failed to execute request.");
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::UNAUTHORIZED),
+        StatusCode::OK
+    );
 }
 
 #[tokio::test]
@@ -128,7 +128,7 @@ async fn test_get_users() {
         .expect("Failed to execute request.");
 
     assert!(response.status().is_success());
-    
+
     cleanup_test_data(&pool).await;
 }
 
@@ -147,9 +147,11 @@ async fn test_create_user() {
         .send()
         .await
         .expect("Failed to execute request.");
+    assert_eq!(
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::UNAUTHORIZED),
+        StatusCode::CREATED
+    );
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    
     cleanup_test_data(&pool).await;
 }
 
