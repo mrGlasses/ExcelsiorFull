@@ -1,4 +1,4 @@
-pub mod db;
+pub mod database;
 pub mod domain;
 pub mod engine;
 pub mod handlers;

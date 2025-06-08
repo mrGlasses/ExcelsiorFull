@@ -5,7 +5,7 @@ use std::net::TcpListener;
 use std::sync::Arc;
 
 // Import the ms1 crate and its modules
-use ms1::{db, engine::db_engine::DbPool, routes, state::AppState};
+use ms1::{database, engine::db_engine::DbPool, routes, state::AppState};
 
 // Helper function to set up the test environment
 fn setup_test_env() {
@@ -20,7 +20,7 @@ fn setup_test_env() {
 
 // Helper function to create a test database connection
 async fn create_test_db_pool() -> MySqlPool {
-    db::connection::init_db()
+    database::connection::init_db()
         .await
         .expect("Failed to connect to test database")
 }
@@ -33,7 +33,7 @@ async fn spawn_app() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
 
-    // Set up test database connection using the same method as main app
+    // Set up a test database connection using the same method as main app
     let pool = create_test_db_pool().await;
 
     let app_state = AppState {

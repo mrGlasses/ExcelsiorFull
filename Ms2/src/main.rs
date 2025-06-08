@@ -14,7 +14,7 @@ async fn main() {
     dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    let app_state = state::AppState {noda: "fuck".parse().unwrap() };
+    let app_state = state::AppState { code: "ms2".parse().unwrap() };
 
     let app = create_routes(app_state).layer(TraceLayer::new_for_http());
 

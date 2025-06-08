@@ -2,5 +2,5 @@
 
 #[derive(Clone)]
 pub struct AppState {
-    pub noda: String,
+    pub code: String,
 }
