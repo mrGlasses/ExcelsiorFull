@@ -1,4 +1,5 @@
 use crate::domain::general::{FilterParams, Message, Params};
+use serde_json::from_str;
 
 #[test]
 fn test_message_default() {
@@ -22,7 +23,7 @@ fn test_message_serialization() {
 #[test]
 fn test_message_deserialization() {
     let json = r#"{"code":404,"message_text":"Not Found"}"#;
-    let message: Message = serde_json::from_str(json).unwrap();
+    let message: Message = from_str(json).unwrap();
 
     assert_eq!(message.code, 404);
     assert_eq!(message.message_text, "Not Found");
@@ -31,7 +32,7 @@ fn test_message_deserialization() {
 #[test]
 fn test_params_deserialization() {
     let json = r#"{"param_1":42,"param_2":"test"}"#;
-    let params: Params = serde_json::from_str(json).unwrap();
+    let params: Params = from_str(json).unwrap();
 
     assert_eq!(params.param_1, 42);
     assert_eq!(params.param_2, "test");
@@ -40,7 +41,7 @@ fn test_params_deserialization() {
 #[test]
 fn test_filter_params_with_all_fields() {
     let json = r#"{"name":"John","age":30,"active":true}"#;
-    let filter: FilterParams = serde_json::from_str(json).unwrap();
+    let filter: FilterParams = from_str(json).unwrap();
 
     assert_eq!(filter.name, Some(String::from("John")));
     assert_eq!(filter.age, Some(30));
@@ -50,7 +51,7 @@ fn test_filter_params_with_all_fields() {
 #[test]
 fn test_filter_params_with_partial_fields() {
     let json = r#"{"name":"John","age":null,"active":null}"#;
-    let filter: FilterParams = serde_json::from_str(json).unwrap();
+    let filter: FilterParams = from_str(json).unwrap();
 
     assert_eq!(filter.name, Some(String::from("John")));
     assert_eq!(filter.age, None);
@@ -60,7 +61,7 @@ fn test_filter_params_with_partial_fields() {
 #[test]
 fn test_filter_params_empty() {
     let json = r#"{"name":null,"age":null,"active":null}"#;
-    let filter: FilterParams = serde_json::from_str(json).unwrap();
+    let filter: FilterParams = from_str(json).unwrap();
 
     assert_eq!(filter.name, None);
     assert_eq!(filter.age, None);

@@ -1,5 +1,5 @@
 use crate::domain::database::{NewUser, User};
-use serde_json::json;
+use serde_json::{from_value, json, to_value};
 
 #[test]
 fn test_new_user_deserialization() {
@@ -7,14 +7,14 @@ fn test_new_user_deserialization() {
         "name": "John Doe"
     });
 
-    let new_user: NewUser = serde_json::from_value(json_data).unwrap();
+    let new_user: NewUser = from_value(json_data).unwrap();
     assert_eq!(new_user.name, "John Doe");
 }
 
 #[test]
 fn test_new_user_missing_field() {
     let json_data = json!({});
-    let result = serde_json::from_value::<NewUser>(json_data);
+    let result = from_value::<NewUser>(json_data);
     assert!(result.is_err());
 }
 
@@ -25,7 +25,7 @@ fn test_user_serialization() {
         name: String::from("John Doe"),
     };
 
-    let serialized = serde_json::to_value(&user).unwrap();
+    let serialized = to_value(&user).unwrap();
     let expected = json!({
         "uid": 1,
         "name": "John Doe"
@@ -41,7 +41,7 @@ fn test_user_deserialization() {
         "name": "John Doe"
     });
 
-    let user: User = serde_json::from_value(json_data).unwrap();
+    let user: User = from_value(json_data).unwrap();
     assert_eq!(user.uid, 1);
     assert_eq!(user.name, "John Doe");
 }
@@ -65,7 +65,7 @@ fn test_user_missing_fields() {
         "uid": 1
     });
 
-    let result = serde_json::from_value::<User>(json_data);
+    let result = from_value::<User>(json_data);
     assert!(result.is_err());
 }
 
@@ -76,6 +76,6 @@ fn test_user_invalid_types() {
         "name": "John Doe"
     });
 
-    let result = serde_json::from_value::<User>(json_data);
+    let result = from_value::<User>(json_data);
     assert!(result.is_err());
 }

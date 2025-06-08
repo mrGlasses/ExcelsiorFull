@@ -9,7 +9,6 @@ use ms1::{database, engine::db_engine::DbPool, routes, state::AppState};
 
 // Helper function to set up the test environment
 fn setup_test_env() {
-    // Try to load .env.test file, fall back to .env if not found
     if std::path::Path::new(".env.test").exists() {
         dotenv::from_filename(".env.test").ok();
     } else {
@@ -33,7 +32,7 @@ async fn spawn_app() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
 
-    // Set up a test database connection using the same method as main app
+    // Set up a test database connection using the same method as the main app
     let pool = create_test_db_pool().await;
 
     let app_state = AppState {

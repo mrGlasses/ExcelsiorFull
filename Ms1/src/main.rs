@@ -1,3 +1,7 @@
+use crate::database::connection::init_db;
+use crate::engine::db_engine::DbPool;
+use crate::routes::create_routes;
+use crate::utils::un_utils::start_message;
 use dotenv::dotenv;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -7,10 +11,6 @@ use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 use tracing::{error, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::engine::db_engine::DbPool;
-use crate::routes::create_routes;
-use crate::utils::un_utils::start_message;
-use crate::database::connection::init_db;
 
 mod database;
 mod domain;
@@ -25,9 +25,7 @@ async fn main() {
     dotenv().ok();
     setup_tracing().await;
 
-    let db_pool = init_db()
-        .await
-        .expect("Failed to connect to DB");
+    let db_pool = init_db().await.expect("Failed to connect to DB");
     let app_state = state::AppState {
         db_pool: Arc::new(DbPool::Real(db_pool)),
     };

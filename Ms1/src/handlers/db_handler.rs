@@ -1,6 +1,5 @@
 use crate::domain::database::NewUser;
-use crate::engine;
-use crate::engine::db_engine::create_user_db_call;
+use crate::engine::db_engine::{create_user_db_call, get_users_db_call};
 use crate::state::AppState;
 use axum::response::{IntoResponse, Response};
 use axum::{extract::State, http::StatusCode, Json};
@@ -8,7 +7,7 @@ use tracing::{error, info, warn};
 
 pub async fn get_users(State(state): State<AppState>) -> Response {
     info!("get_users called");
-    let vec_users = engine::db_engine::get_users_db_call(State(state)).await;
+    let vec_users = get_users_db_call(State(state)).await;
     match vec_users {
         Ok(users) => {
             warn!("Users returned");

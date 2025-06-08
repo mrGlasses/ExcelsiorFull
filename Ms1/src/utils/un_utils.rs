@@ -11,19 +11,3 @@ pub async fn start_message(location: String) {
     println!();
     println!("Server listening on {}.", location)
 }
-
-// /*################################################################################################
-//
-//         ----------------------------------------TESTS-----------------------------------
-//
-// #################################################################################################*/
-//
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     #[tokio::test]
-//     async fn test_start_message() {
-//         start_message("8080".to_string()).await;
-//         assert!(true);
-//     }
-// }

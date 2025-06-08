@@ -4,7 +4,7 @@ use anyhow::Result;
 use axum::extract::State;
 #[cfg(test)]
 use mockall::automock;
-use sqlx::{MySql, Pool, Row};
+use sqlx::{query, MySql, Pool, Row};
 
 // Wrapper type that can be either a real pool or a mock (in tests)
 pub enum DbPool {
@@ -23,7 +23,7 @@ pub trait DatabaseExecutor: Send + Sync {
 #[async_trait::async_trait]
 impl DatabaseExecutor for Pool<MySql> {
     async fn execute_get_users(&self) -> Result<Vec<User>> {
-        let users = sqlx::query("CALL sp_Return_USERS();")
+        let users = query("CALL sp_Return_USERS();")
             .map(|row: sqlx::mysql::MySqlRow| User {
                 uid: row.get(0),
                 name: row.get(1),
@@ -34,7 +34,7 @@ impl DatabaseExecutor for Pool<MySql> {
     }
 
     async fn execute_create_user(&self, name: String) -> Result<String> {
-        let _ = sqlx::query(&format!("CALL sp_Insert_User(\"{}\")", name))
+        let _ = query(&format!("CALL sp_Insert_User(\"{}\")", name))
             .execute(self)
             .await?;
         Ok("OK".to_string())
