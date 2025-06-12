@@ -3,6 +3,7 @@ use axum::{
     extract::{Path, Query},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
+    Json,
 };
 use tracing::{error, info, warn};
 
@@ -68,6 +69,15 @@ pub async fn get_question(Query(params): Query<FilterParams>) -> Response {
         params.name.unwrap_or_default(),
         params.age.unwrap_or_default(),
         params.active.unwrap_or_default()
+    );
+    (StatusCode::OK, response).into_response()
+}
+
+pub async fn post_body_data(Json(payload): Json<Message>) -> Response {
+    info!("Received payload: {:?}", payload);
+    let response = format!(
+        "Received message with code: {}, text: {}",
+        payload.code, payload.message_text
     );
     (StatusCode::OK, response).into_response()
 }

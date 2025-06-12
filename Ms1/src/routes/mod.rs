@@ -21,6 +21,7 @@ pub fn create_routes(state: AppState) -> Router {
         .route("/protected-enter", get(protected_route))
         .route("/params/:param_1/another_p/:param_2", get(get_params)) // localhost/params/1/another_p/textTest
         .route("/question_separator", get(get_question)) // localhost/question_separator?name=Jack&age=25&active=true
+        .route("/body-data", post(post_body_data))
         .layer((
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

@@ -189,3 +189,24 @@ async fn test_get_question_with_filters() {
     assert!(body.contains("30"));
     assert!(body.contains("true"));
 }
+
+#[tokio::test]
+async fn test_post_body_data() {
+    let address = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let response = client
+        .post(format!("{}/body-data", address))
+        .json(&serde_json::json!({
+            "code": 2007,
+            "message_text": "Test message"
+        }))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    assert!(response.status().is_success());
+    let body = response.text().await.unwrap();
+    assert!(body.contains("Test message"));
+    assert!(body.contains("2007"));
+}

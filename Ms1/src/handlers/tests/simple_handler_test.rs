@@ -1,10 +1,10 @@
-use crate::domain::general::{FilterParams, Params};
+use crate::domain::general::{FilterParams, Message, Params};
 use crate::handlers::simple_handler::*;
 use axum::body::HttpBody;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::{extract::Query, http::HeaderMap};
+use axum::{extract::Query, http::HeaderMap, Json};
 use httpmock::prelude::*;
 
 #[tokio::test]
@@ -100,4 +100,20 @@ async fn test_get_question() {
         }
         Err(e) => panic!("Error: {}", e),
     }
+}
+
+#[tokio::test]
+async fn test_post_body_data() {
+    let body_data = Message {
+        code: 777,
+        message_text: "Received body data successfully!".to_string(),
+    };
+
+    let response = post_body_data(Json(body_data)).await;
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+
+    assert_eq!(
+        body,
+        "Received message with code: 777, text: Received body data successfully!".as_bytes()
+    );
 }
