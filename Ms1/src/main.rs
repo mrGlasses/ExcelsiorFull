@@ -5,10 +5,7 @@ use crate::utils::un_utils::start_message;
 use dotenv::dotenv;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::signal;
-use tower_http::timeout::TimeoutLayer;
-use tower_http::trace::TraceLayer;
 use tracing::{error, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -30,10 +27,7 @@ async fn main() {
         db_pool: Arc::new(DbPool::Real(db_pool)),
     };
 
-    let app = create_routes(app_state).layer((
-        TraceLayer::new_for_http(),
-        TimeoutLayer::new(Duration::from_secs(60)),
-    ));
+    let app = create_routes(app_state);
 
     let pre_port = std::env::var("MS_PORT").expect("MS_PORT must be set.");
     let port = pre_port.parse().expect("MS_PORT must be a number.");
