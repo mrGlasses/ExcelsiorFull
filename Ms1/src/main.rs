@@ -39,15 +39,15 @@ async fn main() {
     //info!("Excelsior listening on {}", addr); //tracing mode startup
     start_message(addr.to_string()).await; //default mode startup
 
-    let graceful = server.with_graceful_shutdown(shutdown_signal()); //#-#
+    let graceful = server.with_graceful_shutdown(shutdown_signal()); 
 
     if let Err(err) = graceful.await {
-        error!("server error: {}", err); //#-#
+        error!("server error: {}", err); 
     }
 }
 
 async fn shutdown_signal() {
-    //#-#
+    
     let ctrl_c = async {
         signal::ctrl_c()
             .await
@@ -69,7 +69,7 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
-    warn!("signal received, starting graceful shutdown"); //#-#
+    warn!("signal received, starting graceful shutdown"); 
 }
 
 pub async fn setup_tracing() {
