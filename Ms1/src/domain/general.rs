@@ -18,5 +18,5 @@ pub struct Params {
 pub struct FilterParams {
     pub name: Option<String>,
     pub age: Option<u32>,
-    pub active: Option<bool>, //test push
+    pub active: Option<bool>,
 }
