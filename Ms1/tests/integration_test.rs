@@ -79,6 +79,22 @@ async fn test_server_health_check() {
 }
 
 #[tokio::test]
+async fn test_its_a_rainy_day_route() {
+    let address = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let response = client
+        .get(format!("{}/its-a-rainy-day", address))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    assert!(response.status().is_success());
+    let body = response.text().await.unwrap();
+    assert!(body.contains("Ladaradiradadada! !!"));
+}
+
+#[tokio::test]
 async fn test_protected_route_unauthorized() {
     let address = spawn_app().await;
     let client = reqwest::Client::new();
