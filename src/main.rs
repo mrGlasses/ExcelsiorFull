@@ -2,11 +2,12 @@ use crate::database::connection::init_db;
 use crate::engine::db_engine::DbPool;
 use crate::routes::create_routes;
 use crate::utils::un_utils::start_message;
+use crate::utils::otel_config::{setup_tracing_with_otel, shutdown_telemetry};
 use dotenv::dotenv;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::signal;
-use tracing::{error, warn};
+use tracing::{error, warn, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod database;
@@ -20,7 +21,7 @@ mod utils;
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    setup_tracing().await;
+    setup_tracing_with_otel();
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
     let app_state = state::AppState {
@@ -44,6 +45,10 @@ async fn main() {
     if let Err(err) = graceful.await {
         error!("server error: {}", err); 
     }
+
+    // Critical: Flush all remaining telemetry before exit
+    info!("Shutting down OpenTelemetry...");
+    shutdown_telemetry();
 }
 
 async fn shutdown_signal() {
