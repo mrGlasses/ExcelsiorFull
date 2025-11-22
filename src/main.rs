@@ -8,7 +8,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::signal;
 use tracing::{error, warn, info};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod database;
 mod domain;
@@ -46,7 +45,6 @@ async fn main() {
         error!("server error: {}", err); 
     }
 
-    // Critical: Flush all remaining telemetry before exit
     info!("Shutting down OpenTelemetry...");
     shutdown_telemetry();
 }
@@ -75,13 +73,4 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
     warn!("signal received, starting graceful shutdown"); 
-}
-
-pub async fn setup_tracing() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
 }
