@@ -1,13 +1,17 @@
+use std::env;
 use axum::http::StatusCode;
 use dotenv::dotenv;
 use sqlx::MySqlPool;
 use std::net::TcpListener;
 use std::sync::Arc;
-
+use serial_test::serial;
 // Import the ms1 crate and its modules
 use ms1::{database, engine::db_engine::DbPool, routes, state::AppState};
+use ms1::utils::otel_config::{setup_tracing_with_otel, shutdown_telemetry};
+use std::sync::Once;
 
 // Helper function to set up the test environment
+static INIT: Once = Once::new();
 fn setup_test_env() {
     if std::path::Path::new(".env.test").exists() {
         dotenv::from_filename(".env.test").ok();
@@ -225,4 +229,57 @@ async fn test_post_body_data() {
     let body = response.text().await.unwrap();
     assert!(body.contains("Test message"));
     assert!(body.contains("2007"));
+}
+
+#[tokio::test]
+#[serial]
+async fn test_setup_tracing_with_otel_full_stack() {
+    setup_test_env();
+    INIT.call_once(|| {
+        // Initialize any global test setup here
+        env::set_var("RUST_LOG", "info");
+    });
+
+    env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317");
+    env::set_var("OTEL_SERVICE_NAME", "excelsior-tracing-test");
+    env::set_var("ENVIRONMENT", "testing");
+    env::set_var("RUST_LOG", "info");
+
+    println!("🔧 Testing setup_tracing_with_otel with real collector...");
+
+    // This function calls init_telemetry internally and sets up the subscriber
+    // Note: This can only be called ONCE per test process due to global subscriber
+    let result = std::panic::catch_unwind(|| {
+        setup_tracing_with_otel();
+    });
+
+    match result {
+        Ok(_) => {
+            println!("✅ Successfully set up tracing with OpenTelemetry");
+
+            // Test that tracing works
+            tracing::info!("Test log message from integration test");
+            tracing::debug!("Debug message - should respect RUST_LOG");
+            tracing::warn!("Warning message");
+
+            println!("✅ Tracing messages sent successfully");
+
+            // Give time for spans to flush
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+            shutdown_telemetry();
+            println!("✅ Successfully shut down telemetry");
+        }
+        Err(e) => {
+            // The function might panic if collector is not available
+            eprintln!("❌ setup_tracing_with_otel panicked: {:?}", e);
+            eprintln!("💡 Make sure OTLP collector is running on localhost:4317");
+            panic!("Tracing setup failed");
+        }
+    }
+
+    // Clean up
+    env::remove_var("OTEL_EXPORTER_OTLP_ENDPOINT");
+    env::remove_var("OTEL_SERVICE_NAME");
+    env::remove_var("ENVIRONMENT");
 }
