@@ -1,4 +1,39 @@
 services:
+  # ============================================
+  # Rust Microservice (Your App)
+  # ============================================
+  ms1:
+    image: ghcr.io/mrglasses/excelsiorfull:${APP_VERSION:-latest}
+    container_name: ms1-app
+    restart: unless-stopped
+    ports:
+      - "${MS_PORT:-3000}:3000"
+    environment:
+      DATABASE_NAME: ${DATABASE_NAME:-TESTMS}
+      DATABASE_HOST: db
+      DATABASE_USER: ${DATABASE_USER:-root}
+      DATABASE_PSWD: ${DATABASE_PSWD:-ENNBA}
+      DATABASE_PORT: 3306
+      MS_PORT: ${MS_PORT:-3000}
+      EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-http://localhost:3001}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-allinone:4317
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-excelsior}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      RUST_LOG: ${RUST_LOG:-info,ms1=debug}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/ping" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
   db:
     container_name: mariadb
     image: mariadb:latest
@@ -124,3 +159,7 @@ volumes:
   mongo-data:
   redis-data:
   grafana-data:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,280 @@
+name: CI/CD Pipeline - Deploy to Oracle VPS
+
+on:
+  pull_request:
+    branches:
+      - deploy
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - hotfix
+        default: 'patch'
+
+env:
+  CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================
+  # Job 1: Version Management
+  # ============================================
+  version-bump:
+    name: Update Version
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version in Cargo.toml
+        id: bump
+        run: |
+          # Get current version from Cargo.toml
+          CURRENT_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Split version into parts
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Determine version type (from manual dispatch or default to patch)
+          VERSION_TYPE="${{ github.event.inputs.version_type || 'patch' }}"
+          
+          # Bump version based on type
+          case $VERSION_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch|hotfix)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+          
+          # Update Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
+          
+          # Update Cargo.lock
+          cargo update -p ms1 --offline || cargo generate-lockfile
+          
+          # Commit changes
+          git add Cargo.toml Cargo.lock
+          git commit -m "chore: bump version to $NEW_VERSION [$VERSION_TYPE]" || echo "No changes to commit"
+          git push origin deploy
+          
+          # Set output
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+  # ============================================
+  # Job 2: Build and Test
+  # ============================================
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    needs: version-bump
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-tooling@v1
+        with:
+          toolchain: 1.83
+          cache: true
+
+      - name: Run tests
+        run: cargo test --verbose
+        env:
+          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+          DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
+          DATABASE_USER: ${{ secrets.DATABASE_USER }}
+          DATABASE_PSWD: ${{ secrets.DATABASE_PSWD }}
+          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+          MS_PORT: ${{ secrets.MS_PORT }}
+          EXTERNAL_SERVICE_URL: ${{ secrets.EXTERNAL_SERVICE_URL }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_SERVICE_NAME: ${{ secrets.OTEL_SERVICE_NAME }}
+          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
+          RUST_LOG: ${{ secrets.RUST_LOG }}
+
+      - name: Run Clippy
+        run: cargo clippy -- -D warnings
+
+  # ============================================
+  # Job 3: Build and Push Docker Image
+  # ============================================
+  docker-build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [version-bump, build-and-test]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.version-bump.outputs.new_version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ needs.version-bump.outputs.new_version }}
+
+      - name: Compress image (optional analysis)
+        run: |
+          docker images | grep ms1
+
+  # ============================================
+  # Job 4: Deploy to Oracle VPS
+  # ============================================
+  deploy:
+    name: Deploy to Oracle VPS
+    runs-on: ubuntu-latest
+    needs: [version-bump, docker-build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy docker-compose to VPS
+        run: |
+          scp -i ~/.ssh/id_rsa docker-compose.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/app/
+
+      - name: Deploy to VPS
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+            cd ~/app
+          
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+            # Pull the latest image
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version-bump.outputs.new_version }}
+          
+            # Update docker-compose to use the new version
+            export APP_VERSION=${{ needs.version-bump.outputs.new_version }}
+            export DATABASE_NAME="${{ secrets.DATABASE_NAME }}"
+            export DATABASE_HOST="${{ secrets.DATABASE_HOST }}"
+            export DATABASE_USER="${{ secrets.DATABASE_USER }}"
+            export DATABASE_PSWD="${{ secrets.DATABASE_PSWD }}"
+            export DATABASE_PORT="${{ secrets.DATABASE_PORT }}"
+            export MS_PORT="${{ secrets.MS_PORT }}"
+            export MARIADB_ROOT_PASSWORD="${{ secrets.MARIADB_ROOT_PASSWORD }}"
+            export MONGO_INITDB_ROOT_USERNAME="${{ secrets.MONGO_INITDB_ROOT_USERNAME }}"
+            export MONGO_INITDB_ROOT_PASSWORD="${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}"
+            export REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
+            export GRAFANA_ADMIN_PASSWORD="${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
+            export GRAFANA_ADMIN_USER="${{ secrets.GRAFANA_ADMIN_USER }}"
+          
+            # Stop and remove old containers
+            docker-compose down
+          
+            # Start new containers
+            docker-compose up -d
+          
+            # Clean up old images
+            docker image prune -af
+          
+            echo "Deployment completed successfully!"
+          EOF
+
+      - name: Health Check
+        run: |
+          sleep 10
+          ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "curl -f http://localhost:3000/health || exit 1"
+
+  # ============================================
+  # Job 5: Notification
+  # ============================================
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [version-bump, deploy]
+    if: always()
+
+    steps:
+      - name: Deployment Success
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "✅ Deployment successful! Version ${{ needs.version-bump.outputs.new_version }} is now live."
+
+      - name: Deployment Failed
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Deployment failed. Check the logs."
+          exit 1

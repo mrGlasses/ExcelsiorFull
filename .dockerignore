@@ -1,0 +1,45 @@
+# Build artifacts
+target/
+**/*.rs.bk
+*. pdb
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.github/
+.gitignore
+
+# Environment files
+.env
+.env.*
+
+# Documentation
+README.md
+LICENSE
+*. md
+
+# Docker files
+docker-compose.yml
+Dockerfile
+. dockerignore
+
+# Test artifacts
+coverage/
+tarpaulin-report.xml
+*. profraw
+
+# CI/CD
+.github/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
