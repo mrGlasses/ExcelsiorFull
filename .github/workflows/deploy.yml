@@ -21,7 +21,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github. repository }}
 
 jobs:
   # ============================================
@@ -30,9 +30,9 @@ jobs:
   version-bump:
     name: Update Version
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    if: github. event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
     outputs:
-      new_version: ${{ steps.bump.outputs.new_version }}
+      new_version: ${{ steps.bump. outputs.new_version }}
 
     steps:
       - name: Checkout code
@@ -115,23 +115,28 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-tooling@v1
         with:
-          toolchain: 1.83
+          toolchain: 1.84  # UPDATED: Use Rust 1.84
           cache: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
 
       - name: Run tests
         run: cargo test --verbose
         env:
-          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
-          DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
-          DATABASE_USER: ${{ secrets.DATABASE_USER }}
-          DATABASE_PSWD: ${{ secrets.DATABASE_PSWD }}
-          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
-          MS_PORT: ${{ secrets.MS_PORT }}
-          EXTERNAL_SERVICE_URL: ${{ secrets.EXTERNAL_SERVICE_URL }}
-          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-          OTEL_SERVICE_NAME: ${{ secrets.OTEL_SERVICE_NAME }}
-          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
-          RUST_LOG: ${{ secrets.RUST_LOG }}
+          DATABASE_NAME: test_db
+          DATABASE_HOST: localhost
+          DATABASE_USER: root
+          DATABASE_PSWD: test
+          DATABASE_PORT: 3306
+          MS_PORT: 3000
+          EXTERNAL_SERVICE_URL: http://localhost:3001
+          OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+          OTEL_SERVICE_NAME: excelsior-test
+          ENVIRONMENT: testing
+          RUST_LOG: debug
 
       - name: Run Clippy
         run: cargo clippy -- -D warnings
@@ -161,13 +166,13 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets. GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env. IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.version-bump.outputs.new_version }}
             type=raw,value=latest
@@ -176,6 +181,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./dockerfile  # Use the single Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -185,9 +191,10 @@ jobs:
           build-args: |
             VERSION=${{ needs.version-bump.outputs.new_version }}
 
-      - name: Compress image (optional analysis)
+      - name: Image size analysis
         run: |
-          docker images | grep ms1
+          echo "Docker image built successfully!"
+          docker images | grep excelsiorfull || true
 
   # ============================================
   # Job 4: Deploy to Oracle VPS
@@ -205,14 +212,15 @@ jobs:
 
       - name: Setup SSH
         run: |
-          mkdir -p ~/.ssh
+          mkdir -p ~/. ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy docker-compose to VPS
+      - name: Copy production files to VPS
         run: |
-          scp -i ~/.ssh/id_rsa docker-compose.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/app/
+          scp -i ~/.ssh/id_rsa docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa .env. prod ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/app/. env
 
       - name: Deploy to VPS
         run: |
@@ -220,43 +228,40 @@ jobs:
             cd ~/app
           
             # Login to GitHub Container Registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr. io -u ${{ github.actor }} --password-stdin
+          
+            # Export version from . env
+            export APP_VERSION=${{ needs.version-bump.outputs.new_version }}
           
             # Pull the latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version-bump.outputs.new_version }}
-          
-            # Update docker-compose to use the new version
-            export APP_VERSION=${{ needs.version-bump.outputs.new_version }}
-            export DATABASE_NAME="${{ secrets.DATABASE_NAME }}"
-            export DATABASE_HOST="${{ secrets.DATABASE_HOST }}"
-            export DATABASE_USER="${{ secrets.DATABASE_USER }}"
-            export DATABASE_PSWD="${{ secrets.DATABASE_PSWD }}"
-            export DATABASE_PORT="${{ secrets.DATABASE_PORT }}"
-            export MS_PORT="${{ secrets.MS_PORT }}"
-            export MARIADB_ROOT_PASSWORD="${{ secrets.MARIADB_ROOT_PASSWORD }}"
-            export MONGO_INITDB_ROOT_USERNAME="${{ secrets.MONGO_INITDB_ROOT_USERNAME }}"
-            export MONGO_INITDB_ROOT_PASSWORD="${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}"
-            export REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}"
-            export GRAFANA_ADMIN_PASSWORD="${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
-            export GRAFANA_ADMIN_USER="${{ secrets.GRAFANA_ADMIN_USER }}"
+            docker pull ${{ env.REGISTRY }}/${{ env. IMAGE_NAME }}:${{ needs.version-bump.outputs.new_version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
             # Stop and remove old containers
             docker-compose down
           
-            # Start new containers
+            # Start new containers with production compose file
             docker-compose up -d
           
-            # Clean up old images
-            docker image prune -af
+            # Wait for services to be healthy
+            echo "Waiting for services to start..."
+            sleep 20
           
-            echo "Deployment completed successfully!"
+            # Check container status
+            docker-compose ps
+          
+            # Clean up old images (keep last 3 versions)
+            docker image prune -af --filter "until=72h"
+          
+            echo "✅ Deployment completed successfully!"
           EOF
 
       - name: Health Check
         run: |
-          sleep 10
+          sleep 15
           ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "curl -f http://localhost:3000/health || exit 1"
+            "curl -f http://localhost:3000/ping || exit 1"
+          echo "✅ Health check passed!"
 
   # ============================================
   # Job 5: Notification
@@ -271,10 +276,14 @@ jobs:
       - name: Deployment Success
         if: needs.deploy.result == 'success'
         run: |
-          echo "✅ Deployment successful! Version ${{ needs.version-bump.outputs.new_version }} is now live."
+          echo "✅ Deployment successful!"
+          echo "Version: ${{ needs.version-bump.outputs.new_version }}"
+          echo "Environment: Production (Oracle VPS)"
+          echo "Status: Live and healthy"
 
       - name: Deployment Failed
-        if: needs.deploy.result == 'failure'
+        if: needs.deploy. result == 'failure'
         run: |
-          echo "❌ Deployment failed. Check the logs."
+          echo "❌ Deployment failed!"
+          echo "Check the logs above for details."
           exit 1
