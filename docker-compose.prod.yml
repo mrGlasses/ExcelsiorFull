@@ -66,6 +66,8 @@ services:
       MARIADB_DATABASE: ${DATABASE_NAME}
     volumes:
       - mariadb-data:/var/lib/mysql
+      # AUTO-RUN MIGRATIONS ON FIRST START
+      - ./src/database/migrations:/docker-entrypoint-initdb.d:ro
       # Production: Add backup volume
       - ./backups/mariadb:/backups
     networks:
