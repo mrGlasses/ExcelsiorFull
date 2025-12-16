@@ -73,6 +73,7 @@ pub async fn get_question(Query(params): Query<FilterParams>) -> Response {
     (StatusCode::OK, response).into_response()
 }
 
+/// Test route for POST body data
 pub async fn post_body_data(Json(payload): Json<Message>) -> Response {
     info!("Received payload: {:?}", payload);
     let response = format!(
