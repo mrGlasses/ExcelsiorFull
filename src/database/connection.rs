@@ -11,6 +11,8 @@ pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
         std::env::var("DATABASE_NAME").expect("DATABASE_NAME must be set."),
     );
 
+    println!("Connecting to database: {}", database_builder);
+
     MySqlPoolOptions::new()
         .max_connections(5)
         .min_connections(2)
