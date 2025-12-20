@@ -138,7 +138,7 @@ jobs:
         run: cargo test --verbose
         env:
           DATABASE_NAME: test_db
-          DATABASE_HOST: db
+          DATABASE_HOST: localhost
           DATABASE_USER: root
           DATABASE_PSWD: test
           DATABASE_PORT: 3306
