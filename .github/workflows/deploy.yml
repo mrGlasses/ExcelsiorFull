@@ -83,7 +83,7 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
           
           # Update Cargo.lock
-          cargo update -p ms1 --locked || cargo generate-lockfile
+          cargo update -p ms1 --offline || cargo generate-lockfile
           
           # Commit changes
           git add Cargo.toml Cargo.lock
