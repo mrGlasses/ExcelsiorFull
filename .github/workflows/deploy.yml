@@ -50,6 +50,7 @@ jobs:
       - name: Bump version in Cargo.toml
         id: bump
         run: |
+          echo "Bumping version..."
           # Get current version from Cargo.toml
           CURRENT_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
           echo "Current version: $CURRENT_VERSION"
@@ -95,9 +96,11 @@ jobs:
 
       - name: Create Git Tag
         run: |
+          echo "Creating Git tag..."
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
           git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
           git push origin "v$NEW_VERSION"
+          echo "Git tag created successfully!"
 
   # ============================================
   # Job 2: Build and Test
@@ -213,10 +216,12 @@ jobs:
 
       - name: Setup SSH
         run: |
+          echo "Setting up SSH..."
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          echo "SSH setup complete!"
 
       - name: Copy docker-compose.prod.yml to VPS
         run: |
@@ -224,6 +229,7 @@ jobs:
 
       - name: Generate .env file on VPS from GitHub Secrets
         run: |
+          echo "Generating .env file on VPS..."
           ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'ENVEOF'
           # Create .env with restrictive permissions
           umask 077
@@ -270,9 +276,11 @@ jobs:
           # Ensure only owner can read the file
           chmod 600 ~/app/. env
           ENVEOF
+          echo "Environment file generated successfully!"
 
       - name: Deploy to VPS
         run: |
+          echo "Deploying to VPS..."
           ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd ~/app
           
@@ -301,6 +309,7 @@ jobs:
           
             echo "Deployment completed successfully!"
           EOF
+          echo "Deployment completed successfully!"
 
       - name: Health Check
         run: |
