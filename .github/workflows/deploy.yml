@@ -138,13 +138,13 @@ jobs:
         run: cargo test --verbose
         env:
           DATABASE_NAME: test_db
-          DATABASE_HOST: host.docker.internal
+          DATABASE_HOST: ${{ secrets.DATABASE_HOST_TEST }}
           DATABASE_USER: root
           DATABASE_PSWD: test
           DATABASE_PORT: 3306
           MS_PORT: 3000
           EXTERNAL_SERVICE_URL: https://dummyjson.com/c/717c-17c6-48b0-b197
-          OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4317
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT_TEST }}
           OTEL_SERVICE_NAME: excelsior-test
           ENVIRONMENT: testing
           RUST_LOG: debug
