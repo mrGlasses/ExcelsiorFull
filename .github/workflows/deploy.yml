@@ -101,6 +101,7 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Create Git Tag
+        if: ${{ github.event.inputs.version_type != 'rerun' }}
         run: |
           echo "Creating Git tag..."
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
