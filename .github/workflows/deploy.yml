@@ -118,6 +118,23 @@ jobs:
     needs: version-bump
     if: ${{ !(github.event.inputs.skip_tests == 'true') }}
 
+    services:
+      mysql:
+        image: mariadb:latest
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      # Add OpenTelemetry Collector
+      otel-collector:
+        image: otel/opentelemetry-collector:latest
+        ports:
+          - 4317:4317  # OTLP gRPC
+          - 4318:4318  # OTLP HTTP
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -134,18 +151,31 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev
+          
+      - name: Set up test database
+        run: |
+          # Wait for MySQL to be ready
+          sleep 10
+          
+          # Update dev_environment.sql to use test_db instead of DEV_ENVIRONMENT
+          sed 's/DEV_ENVIRONMENT/test_db/g' tests/dev_environment.sql > tests/test_db_setup.sql
+          
+          # Run the SQL script
+          mysql -h 127.0.0.1 -u root -ptest test_db < tests/test_db_setup.sql
+          
+          echo "Test database initialized successfully"
 
       - name: Run tests
         run: cargo test --verbose
         env:
           DATABASE_NAME: test_db
-          DATABASE_HOST: ${{ secrets.DATABASE_HOST_TEST }}
+          DATABASE_HOST: ${{ secrets.DATABASE_HOST_TEST || '127.0.0.1' }}
           DATABASE_USER: root
           DATABASE_PSWD: test
           DATABASE_PORT: 3306
           MS_PORT: 3000
           EXTERNAL_SERVICE_URL: https://dummyjson.com/c/717c-17c6-48b0-b197
-          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT_TEST }}
+          OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT_TEST || '127.0.0.1:4317' }}
           OTEL_SERVICE_NAME: excelsior-test
           ENVIRONMENT: testing
           RUST_LOG: debug
