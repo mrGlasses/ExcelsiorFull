@@ -13,6 +13,12 @@ use std::sync::Once;
 // Helper function to set up the test environment
 static INIT: Once = Once::new();
 fn setup_test_env() {
+    // Skip dotenv loading if running in CI
+    if std::env::var("CI").is_ok() {
+        println!("Running in CI - using environment variables from workflow");
+        return;
+    }
+
     if std::path::Path::new(".env.test").exists() {
         dotenv::from_filename(".env.test").ok();
     } else {
