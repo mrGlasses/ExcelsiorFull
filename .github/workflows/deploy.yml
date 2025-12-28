@@ -272,7 +272,7 @@ jobs:
 
       - name: Copy docker-compose.prod.yml to VPS
         run: |
-          scp -i ~/.ssh/id_rsa docker-compose.prod.yml ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}: ~/app/docker-compose. yml
+          scp -i ~/.ssh/id_rsa docker-compose.prod.yml ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}: ~/app/docker-compose.yml
 
       - name: Generate .env file on VPS from GitHub Secrets
         run: |
@@ -321,7 +321,7 @@ jobs:
           EOF
       
           # Ensure only owner can read the file
-          chmod 600 ~/app/. env
+          chmod 600 ~/app/.env
           ENVEOF
           echo "Environment file generated successfully!"
 
@@ -332,7 +332,7 @@ jobs:
             cd ~/app
           
             # Login to GitHub Container Registry
-            echo "${{ secrets. GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
             # Pull the latest image
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version-bump.outputs.new_version }}
@@ -361,7 +361,7 @@ jobs:
       - name: Health Check
         run: |
           sleep 15
-          ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_SSH_USER }}@${{ secrets. VPS_HOST }} \
+          ssh -i ~/.ssh/id_rsa ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} \
             "curl -f http://localhost:3000/ping || exit 1"
           echo "Health check passed!"
 
