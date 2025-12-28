@@ -253,12 +253,19 @@ jobs:
         with:
           ref: deploy
 
+      - name: Check VPS_HOST secret
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then
+            echo "Error: VPS_HOST secret is not set."
+            exit 1
+          fi
+
       - name: Setup SSH
         run: |
           echo "Setting up SSH..."
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa.pub
+          chmod 600 ~/.ssh/id_rsa.pub
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           echo "SSH setup complete!"
 
