@@ -246,6 +246,7 @@ jobs:
     name: Deploy to Oracle VPS
     runs-on: ubuntu-latest
     needs: [version-bump, docker-build]
+    environment: Deploy
 
     steps:
       - name: Checkout code
