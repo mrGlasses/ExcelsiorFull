@@ -146,6 +146,7 @@ jobs:
         with:
           toolchain: 1.84
           cache: true
+          components: clippy, rustfmt
 
       - name: Install dependencies
         run: |
