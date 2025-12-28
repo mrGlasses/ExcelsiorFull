@@ -8,7 +8,7 @@ CREATE TABLE `TESTMS`.`t_Users` (
     `UID` int(11) NOT NULL AUTO_INCREMENT,
     `NAME` varchar(15) NOT NULL,
     PRIMARY KEY (`UID`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+);
 
 INSERT INTO `TESTMS`.`t_Users` (`NAME`) VALUES
 ('Alice'),
