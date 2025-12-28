@@ -30,6 +30,7 @@ INSERT INTO `DEV_ENVIRONMENT`.`t_Users` (`NAME`) VALUES
 ('Peggy'),
 ('Quentin');
 
+DELIMITER $$
 CREATE OR REPLACE PROCEDURE DEV_ENVIRONMENT.sp_Return_USERS()
 BEGIN
 SELECT
@@ -39,8 +40,10 @@ FROM t_Users U;
 
 #     SIGNAL SQLSTATE '45000'
 # 		SET MESSAGE_TEXT = 'TEST';
-END;
+END$$
+DELIMITER ;
 
+DELIMITER $$
 CREATE OR REPLACE PROCEDURE DEV_ENVIRONMENT.sp_Insert_User(
     IN prmName varchar(15)
 )
@@ -52,7 +55,8 @@ BEGIN
 
 #    SIGNAL SQLSTATE '45000'
 #		SET MESSAGE_TEXT = 'TEST';
-end;
+end$$
+DELIMITER ;
 
 #the "signal" statements above are commented out to avoid errors during execution.
 
