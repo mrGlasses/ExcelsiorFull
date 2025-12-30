@@ -241,6 +241,7 @@ jobs:
 
   # ============================================
   # Job 4: Deploy to Oracle VPS - for all id_rsa_ga, it should be only id_rsa
+  #     environment should have the same name as the branch/secret name
   # ============================================
   deploy:
     name: Deploy to Oracle VPS
@@ -259,6 +260,8 @@ jobs:
           if [ -z "${{ secrets.VPS_HOST }}" ]; then
             echo "Error: VPS_HOST secret is not set."
             exit 1
+          else
+            echo "VPS_HOST secret set and ready to go!"
           fi
 
       - name: Setup SSH
