@@ -276,20 +276,20 @@ jobs:
           
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || echo "Warning: ssh-keyscan failed"
           # Test the connection
-          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection established successfully!'" 2>&1 || {
-              echo "SSH connection failed. Check VPS_SSH_KEY, VPS_SSH_USER, and VPS_HOST secrets."
+          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection established successfully!'" 2>&1 || {
+              echo "SSH connection failed. Check VPS_SSH_KEY, VPS_USER, and VPS_HOST secrets."
               exit 1
           }
           echo "SSH setup complete!"
 
       - name: Copy docker-compose.prod.yml to VPS
         run: |
-          scp -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/app/docker-compose.yml
 
       - name: Generate .env file on VPS from GitHub Secrets
         run: |
           echo "Generating .env file on VPS..."
-          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'ENVEOF'
+          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENVEOF'
           # Create .env with restrictive permissions
           umask 077
           cat > ~/app/.env << 'EOF'
@@ -340,7 +340,7 @@ jobs:
       - name: Deploy to VPS
         run: |
           echo "Deploying to VPS..."
-          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd ~/app
           
             # Login to GitHub Container Registry
@@ -373,7 +373,7 @@ jobs:
       - name: Health Check
         run: |
           sleep 15
-          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} \
+          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             "curl -f http://localhost:3000/ping || exit 1"
           echo "Health check passed!"
 
