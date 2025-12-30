@@ -27,6 +27,7 @@ env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME_LOWER: ${{ github.repository_owner }}/${{ github.event.repository.name }}
 
 jobs:
   # ============================================
@@ -347,21 +348,21 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
             # Pull the latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version-bump.outputs.new_version }}
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ needs.version-bump.outputs.new_version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest
           
             # Stop and remove old containers
-            docker-compose down
+            docker compose down
           
             # Start new containers with production compose file
-            docker-compose up -d
+            docker compose up -d
           
             # Wait for services to be healthy
             echo "Waiting for services to start..."
             sleep 20
           
             # Check container status
-            docker-compose ps
+            docker compose ps
           
             # Clean up old images (keep last 3 versions)
             docker image prune -af --filter "until=72h"
