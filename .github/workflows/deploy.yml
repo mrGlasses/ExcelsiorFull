@@ -240,7 +240,7 @@ jobs:
           docker images | grep excelsiorfull || true
 
   # ============================================
-  # Job 4: Deploy to Oracle VPS - for all id_rsa.pub, it should be only id_rsa
+  # Job 4: Deploy to Oracle VPS - for all id_rsa_ga, it should be only id_rsa
   # ============================================
   deploy:
     name: Deploy to Oracle VPS
@@ -265,19 +265,19 @@ jobs:
         run: |
           echo "Setting up SSH..."
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa.pub
-          chmod 600 ~/.ssh/id_rsa.pub
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa_ga
+          chmod 600 ~/.ssh/id_rsa_ga
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           echo "SSH setup complete!"
 
       - name: Copy docker-compose.prod.yml to VPS
         run: |
-          scp -i ~/.ssh/id_rsa.pub docker-compose.prod.yml ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa_ga docker-compose.prod.yml ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:~/app/docker-compose.yml
 
       - name: Generate .env file on VPS from GitHub Secrets
         run: |
           echo "Generating .env file on VPS..."
-          ssh -i ~/.ssh/id_rsa.pub ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'ENVEOF'
+          ssh -i ~/.ssh/id_rsa_ga ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'ENVEOF'
           # Create .env with restrictive permissions
           umask 077
           cat > ~/app/.env << 'EOF'
@@ -328,7 +328,7 @@ jobs:
       - name: Deploy to VPS
         run: |
           echo "Deploying to VPS..."
-          ssh -i ~/.ssh/id_rsa.pub ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa_ga ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd ~/app
           
             # Login to GitHub Container Registry
@@ -361,7 +361,7 @@ jobs:
       - name: Health Check
         run: |
           sleep 15
-          ssh -i ~/.ssh/id_rsa.pub ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} \
+          ssh -i ~/.ssh/id_rsa_ga ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} \
             "curl -f http://localhost:3000/ping || exit 1"
           echo "Health check passed!"
 
