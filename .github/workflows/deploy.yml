@@ -269,7 +269,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa_ga
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           # Test the connection
-          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} "
+          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection established successfully!'"
           echo "SSH setup complete!"
 
       - name: Copy docker-compose.prod.yml to VPS
