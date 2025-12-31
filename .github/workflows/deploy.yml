@@ -23,11 +23,22 @@ on:
         required: false
         type: boolean
         default: false
+      build_architecture:
+        description: 'Architecture to build'
+        required: false
+        type: choice
+        options:
+          - arm64-only
+          - amd64-only
+          - multi-arch
+        default: 'arm64-only'
 env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   IMAGE_NAME_LOWER: ${{ github.repository_owner }}/${{ github.event.repository.name }}
+  # 🔥 ARCHITECTURE SELECTION (can be overridden via workflow_dispatch or set per environment)
+  BUILD_ARCH: ${{ github.event.inputs.build_architecture || 'arm64-only' }}
 
 jobs:
   # ============================================
@@ -186,12 +197,17 @@ jobs:
         run: cargo clippy -- -D warnings
 
   # ============================================
-  # Job 3: Build and Push Docker Image
+  # Job 3A: Build AMD64 Docker Image
   # ============================================
-  docker-build:
-    name: Build & Push Docker Image
+  docker-build-amd64:
+    name: Build Docker Image (AMD64)
     runs-on: ubuntu-latest
     needs: [version-bump, build-and-test]
+    # 🔥 CONDITIONAL: Only run if amd64-only or multi-arch
+    if: |
+      always() && 
+      (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
+      (env.BUILD_ARCH == 'amd64-only' || env.BUILD_ARCH == 'multi-arch')
     permissions:
       contents: read
       packages: write
@@ -218,10 +234,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ needs.version-bump.outputs.new_version }}
-            type=raw,value=latest
+            type=raw,value=${{ needs.version-bump.outputs.new_version }}-amd64
+            type=raw,value=latest-amd64
 
-      - name: Build and push Docker image
+      - name: Build and push AMD64 image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -229,16 +245,160 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+          platforms: linux/amd64
           build-args: |
             VERSION=${{ needs.version-bump.outputs.new_version }}
 
       - name: Image size analysis
         run: |
-          echo "Docker image built successfully!"
+          echo "AMD64 Docker image built successfully!"
           docker images | grep excelsiorfull || true
+
+  # ============================================
+  # Job 3B: Build ARM64 Docker Image (NATIVE)
+  # ============================================
+  docker-build-arm64:
+    name: Build Docker Image (ARM64 - Native)
+    runs-on: ubuntu-24.04-arm64 # 🔥 NATIVE ARM64 RUNNER
+    needs: [version-bump, build-and-test]
+    # 🔥 CONDITIONAL: Only run if arm64-only or multi-arch
+    if: |
+      always() && 
+      (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
+      (env.BUILD_ARCH == 'arm64-only' || env.BUILD_ARCH == 'multi-arch')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: deploy
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.version-bump.outputs.new_version }}-arm64
+            type=raw,value=latest-arm64
+
+      - name: Build and push ARM64 image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=arm64
+          cache-to: type=gha,mode=max,scope=arm64
+          platforms: linux/arm64
+          build-args: |
+            VERSION=${{ needs.version-bump.outputs.new_version }}
+
+      - name: Image size analysis
+        run: |
+          echo "ARM64 Docker image built successfully!"
+          docker images | grep excelsiorfull || true
+
+  # ============================================
+  # Job 3C: Create Multi-Arch Manifest
+  # ============================================
+  docker-manifest:
+    name: Create Multi-Arch Manifest
+    runs-on: ubuntu-latest
+    needs: [version-bump, docker-build-amd64, docker-build-arm64]
+    # 🔥 CONDITIONAL: Only run for multi-arch builds
+    if: |
+      always() && 
+      env.BUILD_ARCH == 'multi-arch' &&
+      (needs.docker-build-amd64.result == 'success' && needs.docker-build-arm64.result == 'success')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest
+        run: |
+          echo "Creating multi-architecture manifest..."
+          
+          # Create manifest for version tag
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ needs.version-bump.outputs.new_version }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ needs.version-bump.outputs.new_version }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ needs.version-bump.outputs.new_version }}-arm64
+          
+          # Create manifest for latest tag
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64
+          
+          echo "Multi-architecture manifest created successfully!"
+
+  # ============================================
+  # Job 3D: Tag Single-Arch as Latest
+  # ============================================
+  docker-tag-single-arch:
+    name: Tag Single Architecture as Latest
+    runs-on: ubuntu-latest
+    needs: [version-bump, docker-build-amd64, docker-build-arm64]
+    # 🔥 CONDITIONAL: Only run for single-arch builds
+    if: |
+      always() && 
+      (env.BUILD_ARCH == 'arm64-only' || env.BUILD_ARCH == 'amd64-only') &&
+      ((needs.docker-build-arm64.result == 'success' && env.BUILD_ARCH == 'arm64-only') ||
+       (needs.docker-build-amd64.result == 'success' && env.BUILD_ARCH == 'amd64-only'))
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag single-arch image as latest
+        run: |
+          if [ "${{ env.BUILD_ARCH }}" = "arm64-only" ]; then
+            ARCH="arm64"
+          else
+            ARCH="amd64"
+          fi
+          
+          echo "Tagging ${ARCH} image as 'latest'..."
+          
+          # Create alias tags without architecture suffix
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ needs.version-bump.outputs.new_version }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:${{ needs.version-bump.outputs.new_version }}-${ARCH}
+          
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-${ARCH}
+          
+          echo "Single-architecture (${ARCH}) tagged as 'latest' successfully!"
 
   # ============================================
   # Job 4: Deploy to Oracle VPS - for all id_rsa_ga, it should be only id_rsa
@@ -247,7 +407,14 @@ jobs:
   deploy:
     name: Deploy to Oracle VPS
     runs-on: ubuntu-latest
-    needs: [version-bump, docker-build]
+    needs: [version-bump, docker-build-amd64, docker-build-arm64, docker-manifest, docker-tag-single-arch]
+    # CONDITIONAL: Run after appropriate build jobs complete
+    if: |
+      always() &&
+      (needs.docker-manifest.result == 'success' || 
+       needs.docker-tag-single-arch.result == 'success' ||
+       (needs.docker-build-arm64.result == 'success' && env.BUILD_ARCH == 'arm64-only') ||
+       (needs.docker-build-amd64.result == 'success' && env.BUILD_ARCH == 'amd64-only'))
     environment: Deploy
 
     steps:
@@ -393,6 +560,7 @@ jobs:
         run: |
           echo "Deployment successful!"
           echo "Version: ${{ needs.version-bump.outputs.new_version }}"
+          echo "Architecture: ${{ env.BUILD_ARCH }}"
           echo "Environment: Production (Oracle VPS)"
           echo "Status: Live and healthy"
 
