@@ -75,7 +75,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "bash", "-c", "cat < /dev/tcp/127.0.0.1/3306"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
