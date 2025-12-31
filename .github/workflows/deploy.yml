@@ -37,8 +37,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   IMAGE_NAME_LOWER: ${{ github.repository_owner }}/${{ github.event.repository.name }}
-  # 🔥 ARCHITECTURE SELECTION (can be overridden via workflow_dispatch or set per environment)
-  BUILD_ARCH: ${{ github.event.inputs.build_architecture || 'arm64-only' }}
 
 jobs:
   # ============================================
@@ -52,6 +50,7 @@ jobs:
       contents: write
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
+      build_arch: ${{ steps.set-arch.outputs.arch }}
 
     steps:
       - name: Checkout code
@@ -59,6 +58,13 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Architecture Output
+        id: set-arch
+        run: |
+          # Use input if manual, otherwise default to arm64-only
+          ARCH="${{ github.event.inputs.build_architecture || 'arm64-only' }}"
+          echo "arch=$ARCH" >> $GITHUB_OUTPUT
 
       - name: Setup Git
         run: |
@@ -203,11 +209,11 @@ jobs:
     name: Build Docker Image (AMD64)
     runs-on: ubuntu-latest
     needs: [version-bump, build-and-test]
-    # 🔥 CONDITIONAL: Only run if amd64-only or multi-arch
+    # CONDITIONAL: Only run if amd64-only or multi-arch
     if: |
       always() && 
       (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
-      (env.BUILD_ARCH == 'amd64-only' || env.BUILD_ARCH == 'multi-arch')
+      (needs.version-bump.outputs.build_arch == 'amd64-only' || needs.version-bump.outputs.build_arch == 'multi-arch')
     permissions:
       contents: read
       packages: write
@@ -261,13 +267,13 @@ jobs:
   # ============================================
   docker-build-arm64:
     name: Build Docker Image (ARM64 - Native)
-    runs-on: ubuntu-24.04-arm64 # 🔥 NATIVE ARM64 RUNNER
+    runs-on: ubuntu-24.04-arm # NATIVE ARM64 RUNNER
     needs: [version-bump, build-and-test]
-    # 🔥 CONDITIONAL: Only run if arm64-only or multi-arch
+    # CONDITIONAL: Only run if arm64-only or multi-arch
     if: |
       always() && 
       (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
-      (env.BUILD_ARCH == 'arm64-only' || env.BUILD_ARCH == 'multi-arch')
+      (needs.version-bump.outputs.build_arch == 'arm64-only' || needs.version-bump.outputs.build_arch == 'multi-arch')
     permissions:
       contents: read
       packages: write
@@ -326,7 +332,7 @@ jobs:
     # 🔥 CONDITIONAL: Only run for multi-arch builds
     if: |
       always() && 
-      env.BUILD_ARCH == 'multi-arch' &&
+      needs.version-bump.outputs.build_arch == 'multi-arch' &&
       (needs.docker-build-amd64.result == 'success' && needs.docker-build-arm64.result == 'success')
     permissions:
       contents: read
@@ -366,9 +372,9 @@ jobs:
     # 🔥 CONDITIONAL: Only run for single-arch builds
     if: |
       always() && 
-      (env.BUILD_ARCH == 'arm64-only' || env.BUILD_ARCH == 'amd64-only') &&
-      ((needs.docker-build-arm64.result == 'success' && env.BUILD_ARCH == 'arm64-only') ||
-       (needs.docker-build-amd64.result == 'success' && env.BUILD_ARCH == 'amd64-only'))
+      (needs.version-bump.outputs.build_arch == 'arm64-only' || needs.version-bump.outputs.build_arch == 'amd64-only') &&
+      ((needs.docker-build-arm64.result == 'success' && needs.version-bump.outputs.build_arch == 'arm64-only') ||
+       (needs.docker-build-amd64.result == 'success' && needs.version-bump.outputs.build_arch == 'amd64-only'))
     permissions:
       contents: read
       packages: write
@@ -383,7 +389,7 @@ jobs:
 
       - name: Tag single-arch image as latest
         run: |
-          if [ "${{ env.BUILD_ARCH }}" = "arm64-only" ]; then
+          if [ "${{ needs.version-bump.outputs.build_arch }}" = "arm64-only" ]; then
             ARCH="arm64"
           else
             ARCH="amd64"
@@ -413,8 +419,8 @@ jobs:
       always() &&
       (needs.docker-manifest.result == 'success' || 
        needs.docker-tag-single-arch.result == 'success' ||
-       (needs.docker-build-arm64.result == 'success' && env.BUILD_ARCH == 'arm64-only') ||
-       (needs.docker-build-amd64.result == 'success' && env.BUILD_ARCH == 'amd64-only'))
+       (needs.docker-build-arm64.result == 'success' && needs.version-bump.outputs.build_arch == 'arm64-only') ||
+       (needs.docker-build-amd64.result == 'success' && needs.version-bump.outputs.build_arch == 'amd64-only'))
     environment: Deploy
 
     steps:
@@ -560,7 +566,7 @@ jobs:
         run: |
           echo "Deployment successful!"
           echo "Version: ${{ needs.version-bump.outputs.new_version }}"
-          echo "Architecture: ${{ env.BUILD_ARCH }}"
+          echo "Architecture: ${{ needs.version-bump.outputs.build_arch }}"
           echo "Environment: Production (Oracle VPS)"
           echo "Status: Live and healthy"
 
