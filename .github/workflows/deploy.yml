@@ -76,7 +76,7 @@ jobs:
       - name: Repository Owner to lowercase
         id: lower-owner
         run: |
-          echo "owner=${repository_owner@L}" >> $GITHUB_OUTPUT
+          echo "owner=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_OUTPUT
 
       - name: Setup Git
         run: |
