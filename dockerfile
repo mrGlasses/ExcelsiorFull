@@ -1,33 +1,13 @@
 # ============================================
 # Production-Ready Multi-Stage Dockerfile
-# Optimized with cargo-chef + sccache
-# 10-20x faster than QEMU emulation
+# Optimized with sccache for fast compilation
+# Based on original architecture + sccache caching
 # ============================================
 
 # ============================================
-# Stage 1: Prepare cargo-chef
+# Stage 1: Dependency Builder (Cached Layer)
 # ============================================
-FROM rust:1.84-slim-bookworm AS chef
-
-# Install cargo-chef for optimal layer caching
-RUN cargo install cargo-chef --version 0.1.67
-
-WORKDIR /app
-
-# ============================================
-# Stage 2: Analyze dependencies
-# ============================================
-FROM chef AS planner
-
-COPY .  .
-
-# Generate dependency "recipe"
-RUN cargo chef prepare --recipe-path recipe.json
-
-# ============================================
-# Stage 3: Build dependencies (CACHED LAYER)
-# ============================================
-FROM chef AS builder
+FROM rust:1.84-slim-bookworm AS builder
 
 # Install build-time dependencies + sccache
 RUN apt-get update && apt-get install -y \
@@ -38,11 +18,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install sccache for compilation caching
-RUN wget -q https://github.com/mozilla/sccache/releases/download/v0.7.7/sccache-v0.7.7-$(uname -m)-unknown-linux-musl.tar.gz && \
-    tar xzf sccache-v0.7.7-$(uname -m)-unknown-linux-musl.tar.gz && \
-    mv sccache-v0.7.7-$(uname -m)-unknown-linux-musl/sccache /usr/local/bin/ && \
+# Auto-detect architecture (works on both ARM64 and AMD64)
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then ARCH="aarch64"; fi && \
+    if [ "$ARCH" = "x86_64" ]; then ARCH="x86_64"; fi && \
+    wget -q https://github.com/mozilla/sccache/releases/download/v0.7.7/sccache-v0.7.7-${ARCH}-unknown-linux-musl.tar.gz && \
+    tar xzf sccache-v0.7.7-${ARCH}-unknown-linux-musl.tar.gz && \
+    mv sccache-v0.7.7-${ARCH}-unknown-linux-musl/sccache /usr/local/bin/ && \
     chmod +x /usr/local/bin/sccache && \
-    rm -rf sccache-v0.7.7-$(uname -m)-unknown-linux-musl*
+    rm -rf sccache-v0.7.7-${ARCH}-unknown-linux-musl*
 
 # Configure sccache
 ENV RUSTC_WRAPPER=/usr/local/bin/sccache
@@ -51,37 +35,47 @@ ENV CARGO_INCREMENTAL=0
 
 WORKDIR /app
 
-# Copy the recipe from planner
-COPY --from=planner /app/recipe.json recipe.json
+# ============================================
+# CRITICAL: Dependency Caching Strategy
+# ============================================
+# Copy only Cargo manifests first to create a cached dependency layer
+# This layer will only rebuild if Cargo.toml or Cargo.lock changes
+COPY Cargo.toml Cargo.lock ./
 
-# Build dependencies ONLY (this layer is heavily cached)
-# This is the magic of cargo-chef - it builds deps without your source code
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/sccache \
-    cargo chef cook --release --recipe-path recipe. json
+# Create a dummy source file to build dependencies
+# This allows Docker to cache the compiled dependencies separately from your code
+RUN mkdir -p src && \
+    echo "fn main() {println!(\"Dummy for dependency caching\");}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
 
 # ============================================
-# Stage 4: Build application
+# Stage 2: Application Builder
 # ============================================
-# Copy actual source code
+# Copy the actual source code
 COPY . .
 
-# Build the application (dependencies already compiled)
+# Touch main.rs to ensure it's rebuilt with actual code
+# This forces Cargo to recognize the file change
+RUN touch src/main.rs
+
+# Build the actual application binary with sccache and Docker layer caching
+# Mount caches to persist between builds (requires BuildKit)
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/sccache \
     cargo build --release --bin ms1
 
-# Show compilation cache statistics (for debugging)
+# Show sccache statistics (for debugging build performance)
 RUN sccache --show-stats || true
 
 # ============================================
-# Stage 5: Runtime Image (Minimal & Secure)
+# Stage 3: Runtime Image (Minimal & Secure)
 # ============================================
 FROM debian:bookworm-slim
 
-# Install ONLY runtime dependencies
+# Install ONLY runtime dependencies (no build tools)
+# This keeps the image small and secure
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
@@ -91,29 +85,36 @@ RUN apt-get update && apt-get install -y \
 # ============================================
 # Security: Non-root User
 # ============================================
+# Create a dedicated user to run the application
+# This follows the principle of least privilege
 RUN useradd -m -u 1001 -s /bin/bash appuser
 
 WORKDIR /app
 
-# Copy the compiled binary from builder stage
+# Copy the compiled binary from the builder stage
+# Only the final binary is included, not source code or build artifacts
 COPY --from=builder /app/target/release/ms1 /app/ms1
 
-# Change ownership to non-root user
+# Change ownership to the non-root user
 RUN chown -R appuser:appuser /app
 
-# Switch to non-root user
+# Switch to the non-root user
 USER appuser
 
 # ============================================
 # Runtime Configuration
 # ============================================
+# Expose the application port
+# This should match MS_PORT in your .env file
 EXPOSE 3000
 
 # Health check endpoint
+# Uses the /ping route defined in your Axum router
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:3000/ping || exit 1
 
 # ============================================
 # Entrypoint
 # ============================================
+# Run the binary
 ENTRYPOINT ["/app/ms1"]
