@@ -18,11 +18,6 @@ on:
           - hotfix
           - rerun
         default: 'patch'
-      skip_tests:
-        description: 'Skip tests and linting?  Use with caution!'
-        required: false
-        type: boolean
-        default: false
       build_architecture:
         description: 'Architecture to build'
         required: false
@@ -90,6 +85,16 @@ jobs:
           # Get current version from Cargo.toml
           CURRENT_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
           echo "Current version: $CURRENT_VERSION"
+
+          # Determine version type (from manual dispatch or default to patch)
+          VERSION_TYPE="${{ github.event.inputs.version_type || 'patch' }}"
+
+          # For rerun, just use current version without changes
+          if [ "$VERSION_TYPE" = "rerun" ]; then
+            echo "Rerun mode - using existing version: $CURRENT_VERSION"
+            echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           # Split version into parts
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -146,7 +151,6 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     needs: version-bump
-    if: ${{ !(github.event.inputs.skip_tests == 'true') }}
 
     services:
       mysql:
@@ -224,7 +228,7 @@ jobs:
     # CONDITIONAL: Only run if amd64-only or multi-arch
     if: |
       always() && 
-      (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
+      needs.build-and-test.result == 'success' &&
       (needs.version-bump.outputs.build_arch == 'amd64-only' || needs.version-bump.outputs.build_arch == 'multi-arch')
     permissions:
       contents: read
@@ -284,7 +288,7 @@ jobs:
     # CONDITIONAL: Only run if arm64-only or multi-arch
     if: |
       always() && 
-      (needs.build-and-test.result == 'success' || needs.build-and-test.result == 'skipped') &&
+      needs.build-and-test.result == 'success' &&
       (needs.version-bump.outputs.build_arch == 'arm64-only' || needs.version-bump.outputs.build_arch == 'multi-arch')
     permissions:
       contents: read
@@ -341,7 +345,7 @@ jobs:
     name: Create Multi-Arch Manifest
     runs-on: ubuntu-latest
     needs: [version-bump, docker-build-amd64, docker-build-arm64]
-    # 🔥 CONDITIONAL: Only run for multi-arch builds
+    # CONDITIONAL: Only run for multi-arch builds
     if: |
       always() && 
       needs.version-bump.outputs.build_arch == 'multi-arch' &&
