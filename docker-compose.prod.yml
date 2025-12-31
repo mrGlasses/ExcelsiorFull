@@ -62,9 +62,9 @@ services:
     platform: linux/arm64
     restart: always
     ports:
-      - "127.0.0.1:3306:3306"  # Only accessible from localhost
+      - "127.0.0.1:1021:3306"  # Only accessible from localhost
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DATABASE_PSWD}
       MARIADB_DATABASE: ${DATABASE_NAME}
     volumes:
       - mariadb-data:/var/lib/mysql
