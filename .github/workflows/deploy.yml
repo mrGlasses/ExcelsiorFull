@@ -363,12 +363,12 @@ jobs:
           echo "Creating multi-architecture manifest..."
           
           # Create manifest for version tag
-          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }} \
+          docker buildx imagetools create -t ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }} \
             ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }}-amd64 \
             ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }}-arm64
           
           # Create manifest for latest tag
-          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest \
+          docker buildx imagetools create -t ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest \
             ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest-amd64 \
             ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest-arm64
           
@@ -410,10 +410,10 @@ jobs:
           echo "Tagging ${ARCH} image as 'latest'..."
           
           # Create alias tags without architecture suffix
-          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }} \
+          docker buildx imagetools create -t ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }} \
             ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:${{ needs.version-bump.outputs.new_version }}-${ARCH}
           
-          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest \
+          docker buildx imagetools create -t ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest \
             ${{ env.REGISTRY }}${{ needs.version-bump.outputs.lower_owner }}/${{ needs.version-bump.outputs.lower_repo }}:latest-${ARCH}
           
           echo "Single-architecture (${ARCH}) tagged as 'latest' successfully!"
