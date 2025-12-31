@@ -497,7 +497,6 @@ jobs:
           DATABASE_USER=${{ secrets.DATABASE_USER }}
           DATABASE_PSWD=${{ secrets.DATABASE_PSWD }}
           DATABASE_PORT=${{ secrets.DATABASE_PORT }}
-          MARIADB_ROOT_PASSWORD=${{ secrets.MARIADB_ROOT_PASSWORD }}
 
           # External Services
           EXTERNAL_SERVICE_URL=https://dummyjson.com/c/717c-17c6-48b0-b197
