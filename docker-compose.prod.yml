@@ -145,7 +145,7 @@ services:
     platform: linux/arm64
     restart: always
     ports:
-      - "0.0.0.0:3050:3050"    # Grafana UI (access via SSH tunnel or VPN)
+      - "3050:3000"    # Grafana UI (access via SSH tunnel or VPN)
       - "127.0.0.1:4317:4317"    # OTLP gRPC (internal only)
       - "127.0.0.1:4318:4318"    # OTLP HTTP (internal only)
     environment:
