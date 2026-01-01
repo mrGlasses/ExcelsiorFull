@@ -62,7 +62,7 @@ services:
     platform: linux/arm64
     restart: always
     ports:
-      - "1021:1021"  # Only accessible from localhost
+      - "1021:3306"  # Only accessible from localhost
     environment:
       MARIADB_ROOT_PASSWORD: ${DATABASE_PSWD}
       MARIADB_DATABASE: ${DATABASE_NAME}
