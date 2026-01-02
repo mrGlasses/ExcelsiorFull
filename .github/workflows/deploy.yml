@@ -526,6 +526,13 @@ jobs:
           ENVEOF
           echo "Environment file generated successfully!"
 
+      - name: Copy migration files to VPS
+        run: |
+          echo "Copying migration files to VPS..."
+          ssh -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p ~/app/migrations"
+          scp -i ~/.ssh/id_rsa_ga -o StrictHostKeyChecking=no -r src/database/migrations/* ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/app/migrations/
+          echo "Migration files copied successfully!"
+
       - name: Deploy to VPS
         run: |
           echo "Deploying to VPS..."
