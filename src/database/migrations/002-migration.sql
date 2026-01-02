@@ -1,3 +1,5 @@
+DELIMITER //
+
 CREATE OR REPLACE PROCEDURE TESTMS.sp_Insert_User(
     IN prmName varchar(15)
 )
@@ -9,6 +11,8 @@ BEGIN
 
     #    SIGNAL SQLSTATE '45000'
     #		SET MESSAGE_TEXT = 'TEST';
-end;
+end //
+
+DELIMITER ;
 
 #the "signal" statements above are commented out to avoid errors during execution.
