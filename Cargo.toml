@@ -1,14 +1,14 @@
 [package]
 name = "ms1"
 version = "1.2.51"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.6", features = ["headers"] }
-tower-http = { version = "0.4", features = ["trace", "compression-full", "limit", "timeout"] }
+tower-http = { version = "0.6.8", features = ["trace", "compression-full", "limit", "timeout"] }
 sqlx = { version = "0.8.6", features = ["macros", "mysql", "time", "runtime-tokio-native-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
