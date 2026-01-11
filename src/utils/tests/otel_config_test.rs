@@ -64,7 +64,7 @@ async fn test_init_telemetry_with_real_collector() {
 
     match result {
         Ok(provider) => {
-            println!("✅ Successfully initialized telemetry with real collector");
+            println!("Successfully initialized telemetry with real collector");
 
             // Clean up the provider
             drop(provider);
@@ -85,20 +85,22 @@ async fn test_init_telemetry_with_real_collector() {
 #[tokio::test]
 #[serial]
 async fn test_init_telemetry_unreachable_endpoint() {
-    // Use a valid URL format but unreachable port
-    env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:19999");
-    env::set_var("OTEL_SERVICE_NAME", "test-service");
+    unsafe {
+        // Use a valid URL format but unreachable port
+        env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:19999");
+        env::set_var("OTEL_SERVICE_NAME", "test-service");
 
-    // The exporter build itself should succeed (lazy connection)
-    // but actual span export would fail
-    let _result = std::panic::catch_unwind(|| init_telemetry());
+        // The exporter build itself should succeed (lazy connection)
+        // but actual span export would fail
+        let _result = std::panic::catch_unwind(|| init_telemetry());
 
-    // The lazy connection builder should NOT panic immediately
-    // It only fails when actually trying to send data
-    // So we expect this to succeed (or at least not panic here)
+        // The lazy connection builder should NOT panic immediately
+        // It only fails when actually trying to send data
+        // So we expect this to succeed (or at least not panic here)
 
-    env::remove_var("OTEL_EXPORTER_OTLP_ENDPOINT");
-    env::remove_var("OTEL_SERVICE_NAME");
+        env::remove_var("OTEL_EXPORTER_OTLP_ENDPOINT");
+        env::remove_var("OTEL_SERVICE_NAME");
+    }
 }
 
 /// Test multiple shutdown calls don't cause issues
