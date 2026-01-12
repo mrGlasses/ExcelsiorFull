@@ -37,11 +37,13 @@ fn test_resource_attributes_count() {
     use opentelemetry_sdk::Resource;
 
     // Create a resource similar to our implementation
-    let resource = Resource::new(vec![
-        KeyValue::new("service.name", "excelsior"),
-        KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
-        KeyValue::new("deployment.environment", "production"),
-    ]);
+    let resource = Resource::builder()
+        .with_attributes([
+            KeyValue::new("service.name", "excelsior"),
+            KeyValue::new("service.version", env!("CARGO_PKG_VERSION")),
+            KeyValue::new("deployment.environment", "production"),
+        ])
+        .build();
 
     // The resource should have been created successfully
     // We can't easily count attributes without exposing internal API,

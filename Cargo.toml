@@ -2,6 +2,7 @@
 name = "ms1"
 version = "2.0.0"
 edition = "2024"
+rust-version = "1.92.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,10 +21,10 @@ anyhow = "1.0.97"
 async-trait = "0.1.77"
 
 ##OpenTelemetry
-opentelemetry = { version = "0.27", features = ["trace", "metrics", "logs"] }
-opentelemetry_sdk = { version = "0.27", features = ["trace", "metrics", "logs", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.27", features = ["trace", "metrics", "logs", "grpc-tonic"] }
-tracing-opentelemetry = "0.28"
+opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["trace", "metrics", "logs", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["trace", "metrics", "logs", "grpc-tonic"] }
+tracing-opentelemetry = "0.32.0"
 
 [dev-dependencies]
 axum = { version = "0.8.8"}
