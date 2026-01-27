@@ -1,8 +1,9 @@
 use crate::handlers::simple_handler::*;
 use crate::{handlers::db_handler::*, state::AppState};
+use axum::http::StatusCode;
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
 use std::time::Duration;
 use tower_http::classify::ServerErrorsFailureClass;
@@ -20,7 +21,7 @@ pub fn create_routes(state: AppState) -> Router {
         .route("/ping", get(get_pong))
         .route("/its-a-rainy-day", get(call_external_service))
         .route("/protected-enter", get(protected_route))
-        .route("/params/:param_1/another_p/:param_2", get(get_params)) // localhost/params/1/another_p/textTest
+        .route("/params/{param_1}/another_p/{param_2}", get(get_params)) // localhost/params/1/another_p/textTest
         .route("/question_separator", get(get_question)) // localhost/question_separator?name=Jack&age=25&active=true
         .route("/body-data", post(post_body_data))
         .layer((
@@ -43,7 +44,7 @@ pub fn create_routes(state: AppState) -> Router {
                 ),
             CompressionLayer::new(),
             RequestBodyLimitLayer::new(1024 * 1024 * 10), // 10MB limit
-            TimeoutLayer::new(Duration::from_secs(60)),
+            TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, Duration::from_secs(60)),
         ))
         .with_state(state)
 }

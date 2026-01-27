@@ -1,18 +1,21 @@
 use crate::domain::general::{FilterParams, Message, Params};
 use crate::handlers::simple_handler::*;
-use axum::body::HttpBody;
+use axum::body::to_bytes;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::{extract::Query, http::HeaderMap, Json};
+use axum::{Json, extract::Query, http::HeaderMap};
 use httpmock::prelude::*;
 
 #[tokio::test]
 async fn test_get_pong() {
     let response = get_pong().await;
-    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body = to_bytes(response.into_body(), usize::MAX).await;
 
-    assert_eq!(&body[..], b"PONG!");
+    match body {
+        Err(e) => panic!("Error: {}", e),
+        Ok(b) => assert_eq!(&b[..], b"PONG!"),
+    }
 }
 
 #[tokio::test]
@@ -77,9 +80,12 @@ async fn test_get_params() {
         param_2: "test2".to_string(),
     });
     let response = get_params(param_in).await;
-    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body = to_bytes(response.into_body(), usize::MAX).await;
 
-    assert_eq!(body, "Parameter 1: 1, Parameter 2: test2");
+    match body {
+        Err(e) => panic!("Error: {}", e),
+        Ok(b) => assert_eq!(&b[..], b"Parameter 1: 1, Parameter 2: test2"),
+    }
 }
 
 #[tokio::test]
@@ -91,14 +97,11 @@ async fn test_get_question() {
     });
 
     let response = get_question(query).await;
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    match std::str::from_utf8(&body[..]) {
-        Ok(s) => {
-            assert!(s.contains("Jack"));
-            assert!(s.contains("25"));
-            assert!(s.contains("true"));
-        }
+    let body = to_bytes(response.into_body(), usize::MAX).await;
+
+    match body {
         Err(e) => panic!("Error: {}", e),
+        Ok(b) => assert_eq!(&b[..], b"Filters: name=Jack, age=25, active=true"),
     }
 }
 
@@ -110,10 +113,13 @@ async fn test_post_body_data() {
     };
 
     let response = post_body_data(Json(body_data)).await;
-    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body = to_bytes(response.into_body(), usize::MAX).await;
 
-    assert_eq!(
-        body,
-        "Received message with code: 777, text: Received body data successfully!".as_bytes()
-    );
+    match body {
+        Err(e) => panic!("Error: {}", e),
+        Ok(b) => assert_eq!(
+            &b[..],
+            b"Received message with code: 777, text: Received body data successfully!"
+        ),
+    }
 }
