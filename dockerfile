@@ -7,7 +7,7 @@
 # ============================================
 # Stage 1: Dependency Builder (Cached Layer)
 # ============================================
-FROM rustlang/rust:nightly-2026-01-20-bookworm-slim AS builder
+FROM rustlang/rust:nightly-bookworm-slim AS builder
 
 # Install build-time dependencies + sccache
 RUN apt-get update && apt-get install -y \
