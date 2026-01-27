@@ -71,9 +71,9 @@ pub fn setup_tracing_with_otel() {
 }
 
 pub fn shutdown_telemetry() {
-    if let Some(provider) = TRACER_PROVIDER.get() {
-        if let Err(e) = provider.shutdown() {
-            eprintln!("Failed to shutdown tracer provider: {e}");
-        }
+    if let Some(provider) = TRACER_PROVIDER.get()
+        && let Err(e) = provider.shutdown()
+    {
+        eprintln!("Failed to shutdown tracer provider: {e}");
     }
 }
