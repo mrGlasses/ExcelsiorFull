@@ -7,7 +7,6 @@ pub struct Message {
     pub message_text: String,
 }
 
-
 #[derive(Deserialize)]
 pub struct Params {
     pub param_1: u32,
@@ -19,4 +18,9 @@ pub struct FilterParams {
     pub name: Option<String>,
     pub age: Option<u32>,
     pub active: Option<bool>,
+}
+
+pub struct ReplaceParams {
+    pub old_str: String,
+    pub new_str: String,
 }
