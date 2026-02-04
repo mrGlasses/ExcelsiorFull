@@ -1,33 +1,76 @@
 [package]
 name = "ms1"
-version = "1.2.15"
-edition = "2021"
+version = "2.1.0"
+edition = "2024"
+rust-version = "1.92.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-axum = { version = "0.6", features = ["headers"] }
-tower-http = { version = "0.4", features = ["trace", "compression-full", "limit", "timeout"] }
+axum = { version = "0.8.8"}
+tower-http = { version = "0.6.8", features = ["trace", "compression-full", "limit", "timeout"] }
 sqlx = { version = "0.8.6", features = ["macros", "mysql", "time", "runtime-tokio-native-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dotenv = "0.15"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 reqwest = { version = "0.12.19", features = ["json"] }
 anyhow = "1.0.97"
 async-trait = "0.1.77"
 
 ##OpenTelemetry
-opentelemetry = { version = "0.27", features = ["trace", "metrics", "logs"] }
-opentelemetry_sdk = { version = "0.27", features = ["trace", "metrics", "logs", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.27", features = ["trace", "metrics", "logs", "grpc-tonic"] }
-tracing-opentelemetry = "0.28"
+opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "0.31.0", features = ["trace", "metrics", "logs", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["trace", "metrics", "logs", "grpc-tonic"] }
+tracing-opentelemetry = "0.32.0"
 
 [dev-dependencies]
-axum = { version = "0.6", features = ["headers"] }
+axum = { version = "0.8.8"}
 tokio = { version = "1.0", features = ["full", "test-util"] }
 httpmock = "0.8.0-alpha.1"
-mockall = "0.12"
+mockall = "0.14.0"
 serial_test = "3.2"
+
+# ============================================
+# Build Profiles Optimization
+# ============================================
+[profile.release]
+opt-level = 3           # Maximum optimization
+lto = "thin"            # Thin Link-Time Optimization (faster than "fat", good balance)
+codegen-units = 16      # Balance between compile time and runtime performance
+strip = true            # Strip symbols from binary (smaller size)
+panic = "abort"         # Reduce binary size by removing unwinding code
+incremental = false     # Disable incremental compilation in release (better optimization)
+
+# ============================================
+# Fast CI Build Profile (Optional)
+# Use with:  cargo build --profile release-fast
+# ============================================
+[profile.release-fast]
+inherits = "release"
+opt-level = 2           # Slightly less optimization (faster compilation)
+lto = false             # Disable LTO for faster builds
+codegen-units = 256     # More parallelism = faster compilation
+strip = true            # Still strip symbols
+
+# ============================================
+# Dependency Optimization
+# ============================================
+# This section allows you to override optimization for specific dependencies
+# Useful if some deps are slow to compile but don't need max optimization
+[profile.release. package."*"]
+opt-level = 3
+
+# Example: Speed up sqlx compilation in CI (uncomment if needed)
+# [profile.release.package. sqlx]
+# opt-level = 2
+
+# Example: Speed up OpenTelemetry deps (uncomment if needed)
+# [profile.release.package.opentelemetry]
+# opt-level = 2
+# [profile.release.package.opentelemetry_sdk]
+# opt-level = 2
+# [profile.release.package.opentelemetry-otlp]
+# opt-level = 2

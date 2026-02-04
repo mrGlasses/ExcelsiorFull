@@ -66,7 +66,7 @@ services:
     image: mariadb:latest
     restart: always
     ports:
-      - "127.0.0.1:1021:3306"
+      - "0.0.0.0:1021:3306"
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-ENNBA}
       MARIADB_DATABASE: ${DATABASE_NAME:-TESTMS}
@@ -75,7 +75,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -194,9 +194,9 @@ services:
     image: grafana/otel-lgtm:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3050:3000"    # Grafana UI
-      - "127.0.0.1:4317:4317"    # OTLP gRPC receiver
-      - "127.0.0.1:4318:4318"    # OTLP HTTP receiver
+      - "0.0.0.0:3050:3000"    # Grafana UI
+      - "0.0.0.0:4317:4317"    # OTLP gRPC receiver
+      - "0.0.0.0:4318:4318"    # OTLP HTTP receiver
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
@@ -208,7 +208,7 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 512M
+          memory: 1G
 
 # ============================================
 # Persistent Volumes
