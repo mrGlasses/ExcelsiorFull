@@ -1,4 +1,5 @@
 use crate::domain::general::ReplaceParams;
+use crate::utils::constants::{ERROR_LOGO_FILE, LOGO_FILE, MSG_SERVER_LISTENING};
 use tokio::fs;
 
 pub async fn start_message(location: String) {
@@ -10,17 +11,17 @@ pub async fn start_message(location: String) {
     };
     param_vec.push(param);
 
-    match fs::read_to_string("src/utils/logo.txt").await {
+    match fs::read_to_string(LOGO_FILE).await {
         Ok(content) => {
             let content = replace_bulk(content, &param_vec).await;
             print!("{}", content);
         }
         Err(e) => {
-            eprintln!("Failed to read logo.txt: {}", e);
+            eprintln!("{} {}", ERROR_LOGO_FILE, e);
         }
     }
     println!();
-    println!("Server listening on {}.", location)
+    println!("{} {}.", MSG_SERVER_LISTENING, location)
 }
 
 async fn replace_bulk(text: String, params: &[ReplaceParams]) -> String {
