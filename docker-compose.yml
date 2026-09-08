@@ -79,12 +79,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # Resource limits
+    # Resource limits (raised from 0.5 CPU / 512M: that cap made the container slow
+    # enough under concurrent test connections to cause sqlx PoolTimedOut failures
+    # when the integration test suite runs its tests in parallel)
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '2.0'
+          memory: 1G
 
   # ============================================
   # Adminer (MariaDB Web UI)

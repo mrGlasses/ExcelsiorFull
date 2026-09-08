@@ -46,6 +46,9 @@ pub fn init_telemetry() -> Result<SdkTracerProvider> {
         .build();
 
     global::set_tracer_provider(tracer_provider.clone());
+    // Only the first call in the process wins (OnceLock); shutdown_telemetry() below
+    // depends on this to ever have a provider to shut down.
+    let _ = TRACER_PROVIDER.set(tracer_provider.clone());
 
     Ok(tracer_provider)
 }
@@ -63,11 +66,19 @@ pub fn setup_tracing_with_otel() {
         .with_thread_ids(false)
         .with_line_number(true);
 
-    tracing_subscriber::registry()
+    // try_init (not init) because in the test binary, several tests call this via
+    // service_starter(); a global subscriber can only be set once per process, and any
+    // call after the first is expected to no-op rather than panic.
+    let _ = tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(fmt_layer)
         .with(otel_layer)
-        .init();
+        .try_init();
+}
+
+#[cfg(test)]
+pub(crate) fn is_tracer_provider_set() -> bool {
+    TRACER_PROVIDER.get().is_some()
 }
 
 pub fn shutdown_telemetry() {
