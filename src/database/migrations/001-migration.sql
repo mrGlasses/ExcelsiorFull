@@ -1,14 +1,10 @@
-DELIMITER //
-
-CREATE OR REPLACE PROCEDURE TESTMS.sp_Return_USERS()
+CREATE OR REPLACE FUNCTION sp_return_users()
+RETURNS TABLE (uid integer, name varchar) AS $$
 BEGIN
+    RETURN QUERY
     SELECT
-        U.UID,
-        U.NAME
-    FROM t_Users U;
-
-#     SIGNAL SQLSTATE '45000'
-# 		SET MESSAGE_TEXT = 'TEST';
-END //
-
-DELIMITER ;
+        u.uid,
+        u.name
+    FROM t_users u;
+END;
+$$ LANGUAGE plpgsql;

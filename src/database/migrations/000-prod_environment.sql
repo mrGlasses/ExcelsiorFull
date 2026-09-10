@@ -1,16 +1,11 @@
-CREATE DATABASE IF NOT EXISTS TESTMS
-CHARACTER SET = 'utf8mb4'
-COLLATE = 'utf8mb4_unicode_520_ci';
-
-USE TESTMS;
-
-CREATE TABLE `TESTMS`.`t_Users` (
-    `UID` int(11) NOT NULL AUTO_INCREMENT,
-    `NAME` varchar(15) NOT NULL,
-    PRIMARY KEY (`UID`)
+-- Postgres creates the database itself from the POSTGRES_DB/DATABASE_NAME
+-- env var before running init scripts, so this file only needs the schema.
+CREATE TABLE IF NOT EXISTS t_users (
+    uid SERIAL PRIMARY KEY,
+    name VARCHAR(15) NOT NULL
 );
 
-INSERT INTO `TESTMS`.`t_Users` (`NAME`) VALUES
+INSERT INTO t_users (name) VALUES
 ('Alice'),
 ('Bob'),
 ('Charlie'),
@@ -28,6 +23,3 @@ INSERT INTO `TESTMS`.`t_Users` (`NAME`) VALUES
 ('Oscar'),
 ('Peggy'),
 ('Quentin');
-
-
-

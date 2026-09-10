@@ -5,7 +5,7 @@ use ms1::utils::main_utils::service_starter;
 use ms1::utils::otel_config::{setup_tracing_with_otel, shutdown_telemetry};
 use ms1::{database, engine::db_engine::DbPool, routes, state::AppState};
 use serial_test::serial;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 use std::sync::Arc;
 use std::sync::Once;
 use std::time::Duration;
@@ -35,7 +35,7 @@ fn setup_test_env() {
 // runtime that created them. A pool shared across tests would work fine for whichever
 // test initializes it, then fail for every later test with "a Tokio 1.x context was
 // found, but it is being shutdown" once the initializing test's runtime is gone.
-async fn create_test_db_pool() -> MySqlPool {
+async fn create_test_db_pool() -> PgPool {
     database::connection::init_db()
         .await
         .expect("Failed to connect to test database")
@@ -70,9 +70,9 @@ async fn spawn_app() -> String {
 }
 
 // Helper function to clean up test data
-async fn cleanup_test_data(pool: &MySqlPool) {
+async fn cleanup_test_data(pool: &PgPool) {
     // Add cleanup queries here if needed
-    sqlx::query("DELETE FROM t_Users WHERE name = 'Test User'")
+    sqlx::query("DELETE FROM t_users WHERE name = 'Test User'")
         .execute(pool)
         .await
         .expect("Failed to clean up test data");

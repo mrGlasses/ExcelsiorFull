@@ -1,9 +1,9 @@
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use std::time::Duration;
-use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
 
-pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
+pub async fn init_db() -> Result<Pool<Postgres>, sqlx::Error> {
     let database_builder = &format!(
-        "mysql://{}:{}@{}:{}/{}",
+        "postgres://{}:{}@{}:{}/{}",
         std::env::var("DATABASE_USER").expect("DATABASE_USER must be set."),
         std::env::var("DATABASE_PSWD").expect("DATABASE_PSWD must be set."),
         std::env::var("DATABASE_HOST").expect("DATABASE_HOST must be set."),
@@ -13,7 +13,7 @@ pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
 
     println!("Connecting to database: {}", database_builder);
 
-    MySqlPoolOptions::new()
+    PgPoolOptions::new()
         .max_connections(5)
         .min_connections(2)
         .acquire_timeout(Duration::from_secs(5))

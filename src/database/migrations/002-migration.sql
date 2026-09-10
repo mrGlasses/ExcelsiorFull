@@ -1,18 +1,8 @@
-DELIMITER //
-
-CREATE OR REPLACE PROCEDURE TESTMS.sp_Insert_User(
-    IN prmName varchar(15)
-)
+CREATE OR REPLACE PROCEDURE sp_insert_user(IN prm_name varchar(15))
+LANGUAGE plpgsql
+AS $$
 BEGIN
-    START TRANSACTION;
-    INSERT INTO t_Users (NAME)
-    VALUES (prmName);
-    COMMIT;
-
-    #    SIGNAL SQLSTATE '45000'
-    #		SET MESSAGE_TEXT = 'TEST';
-end //
-
-DELIMITER ;
-
-#the "signal" statements above are commented out to avoid errors during execution.
+    INSERT INTO t_users (name)
+    VALUES (prm_name);
+END;
+$$;
