@@ -30,6 +30,9 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       RUST_LOG: ${RUST_LOG:-debug,ms1=trace}
       RUST_BACKTRACE: 1
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-1sN1c#}
     depends_on:
       db:
         condition: service_healthy
@@ -79,12 +82,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # Resource limits
+    # Resource limits (raised from 0.5 CPU / 512M: that cap made the container slow
+    # enough under concurrent test connections to cause sqlx PoolTimedOut failures
+    # when the integration test suite runs its tests in parallel)
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '2.0'
+          memory: 1G
 
   # ============================================
   # Adminer (MariaDB Web UI)
@@ -177,8 +182,12 @@ services:
     image: ghcr.io/joeferner/redis-commander:latest
     restart: always
     environment:
-      REDIS_HOSTS: "local:redis:6379"
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-1sN1c#}
+      # REDIS_HOSTS entries are "label:host:port:dbIndex:password" - the password has
+      # to be embedded here. A separate standalone REDIS_PASSWORD env var doesn't apply
+      # to REDIS_HOSTS-defined connections; it instead makes the entrypoint script add
+      # its own extra default connection (host defaulting to "localhost", which doesn't
+      # resolve to anything on this container's network) on top of the REDIS_HOSTS one.
+      REDIS_HOSTS: "local:redis:6379:0:${REDIS_PASSWORD:-1sN1c#}"
     ports:
       - "127.0.0.1:1111:8081"
     networks:

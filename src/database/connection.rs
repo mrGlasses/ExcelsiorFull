@@ -1,5 +1,5 @@
+use sqlx::{MySql, Pool, mysql::MySqlPoolOptions};
 use std::time::Duration;
-use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
 
 pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
     let database_builder = &format!(

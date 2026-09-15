@@ -6,7 +6,7 @@ pub struct NewUser {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, FromRow, Clone)]
+#[derive(Serialize, Deserialize, FromRow, Clone, Debug)]
 pub struct User {
     pub uid: i32,
     pub name: String,
