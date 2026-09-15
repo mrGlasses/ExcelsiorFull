@@ -1,9 +1,10 @@
+use crate::handlers::cache_handler::*;
 use crate::handlers::simple_handler::*;
 use crate::{handlers::db_handler::*, state::AppState};
 use axum::http::StatusCode;
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{delete, get, post, put},
 };
 use std::time::Duration;
 use tower_http::classify::ServerErrorsFailureClass;
@@ -24,6 +25,12 @@ pub fn create_routes(state: AppState) -> Router {
         .route("/params/{param_1}/another_p/{param_2}", get(get_params)) // localhost/params/1/another_p/textTest
         .route("/question_separator", get(get_question)) // localhost/question_separator?name=Jack&age=25&active=true
         .route("/body-data", post(post_body_data))
+        // Generic Redis CRUD demo, separate from the get_users cache-aside above:
+        // localhost/cache/some-key with a JSON body {"value": "..."} for create/update
+        .route("/cache/{key}", get(get_cache_entry))
+        .route("/cache/{key}", post(create_cache_entry))
+        .route("/cache/{key}", put(update_cache_entry))
+        .route("/cache/{key}", delete(delete_cache_entry))
         .layer((
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

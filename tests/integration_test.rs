@@ -3,7 +3,9 @@ use dotenv::dotenv;
 // Import the ms1 crate and its modules
 use ms1::utils::main_utils::service_starter;
 use ms1::utils::otel_config::{setup_tracing_with_otel, shutdown_telemetry};
-use ms1::{database, engine::db_engine::DbPool, routes, state::AppState};
+use ms1::{
+    database, engine::cache_engine::CachePool, engine::db_engine::DbPool, routes, state::AppState,
+};
 use serial_test::serial;
 use sqlx::MySqlPool;
 use std::sync::Arc;
@@ -41,6 +43,14 @@ async fn create_test_db_pool() -> MySqlPool {
         .expect("Failed to connect to test database")
 }
 
+// Same "one connection per test runtime" reasoning as create_test_db_pool above applies
+// to the Redis ConnectionManager: it is bound to the Tokio runtime that created it.
+async fn create_test_cache_pool() -> redis::aio::ConnectionManager {
+    database::redis_connection::init_cache()
+        .await
+        .expect("Failed to connect to test cache")
+}
+
 // Helper function to create a test app instance
 async fn spawn_app() -> String {
     setup_test_env();
@@ -51,9 +61,11 @@ async fn spawn_app() -> String {
 
     // Set up a test database connection using the same method as the main app
     let pool = create_test_db_pool().await;
+    let cache_pool = create_test_cache_pool().await;
 
     let app_state = AppState {
         db_pool: Arc::new(DbPool::Real(pool)),
+        cache_pool: Arc::new(CachePool::Real(cache_pool)),
     };
 
     // Build the application with routes
