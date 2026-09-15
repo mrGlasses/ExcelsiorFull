@@ -197,6 +197,17 @@ jobs:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
+      # Redis (bitnami image, since the official redis image has no way to require a
+      # password via env vars - only via a command override, which GitHub Actions
+      # service containers don't support)
+      redis:
+        image: bitnami/redis:latest
+        env:
+          REDIS_PASSWORD: test_redis_password
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli -a test_redis_password ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
       # Add OpenTelemetry Collector
       otel-collector:
         image: otel/opentelemetry-collector:latest
@@ -249,6 +260,9 @@ jobs:
           OTEL_SERVICE_NAME: excelsior-test
           ENVIRONMENT: testing
           RUST_LOG: debug
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          REDIS_PASSWORD: test_redis_password
 
       - name: Run Clippy
         run: cargo clippy -- -D warnings
@@ -547,6 +561,7 @@ jobs:
           # Redis
           REDIS_HOST=redis
           REDIS_PORT=6379
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
 
           # MongoDB
           MONGODB_HOST=mongodb
