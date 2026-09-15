@@ -28,6 +28,9 @@ services:
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-excelsior-prod}
       ENVIRONMENT: production
       RUST_LOG: ${RUST_LOG:-info,ms1=debug}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
       db:
         condition: service_healthy

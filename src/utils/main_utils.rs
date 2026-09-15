@@ -1,4 +1,6 @@
 use crate::database::connection::init_db;
+use crate::database::redis_connection::init_cache;
+use crate::engine::cache_engine::CachePool;
 use crate::engine::db_engine::DbPool;
 use crate::routes::create_routes;
 use crate::state;
@@ -16,8 +18,10 @@ pub async fn service_starter() {
     setup_tracing_with_otel();
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
+    let cache_pool = init_cache().await.expect("Failed to connect to Redis");
     let app_state = state::AppState {
         db_pool: Arc::new(DbPool::Real(db_pool)),
+        cache_pool: Arc::new(CachePool::Real(cache_pool)),
     };
 
     let app = create_routes(app_state);

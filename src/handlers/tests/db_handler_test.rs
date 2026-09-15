@@ -1,12 +1,22 @@
 use crate::domain::database::{NewUser, User};
+use crate::engine::cache_engine::{CachePool, MockCacheExecutor};
 use crate::engine::db_engine::{DbPool, MockDatabaseExecutor};
 use crate::handlers::db_handler::*;
 use crate::state::AppState;
 use anyhow::anyhow;
 use axum::http::StatusCode;
-use axum::{extract::State, Json};
+use axum::{Json, extract::State};
 use mockall::predicate::*;
 use std::sync::Arc;
+
+fn cache_miss_mock() -> MockCacheExecutor {
+    let mut mock_cache = MockCacheExecutor::new();
+    mock_cache
+        .expect_execute_get_cached_users()
+        .times(1)
+        .returning(|| Ok(None));
+    mock_cache
+}
 
 #[tokio::test]
 async fn test_get_users_success() {
@@ -27,8 +37,15 @@ async fn test_get_users_success() {
         .times(1)
         .returning(move || Ok(mock_users.clone()));
 
+    let mut mock_cache = cache_miss_mock();
+    mock_cache
+        .expect_execute_set_cached_users()
+        .times(1)
+        .returning(|_| Ok(()));
+
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_executor)),
+        cache_pool: Arc::new(CachePool::Mock(mock_cache)),
     };
 
     let response = get_users(State(state)).await;
@@ -46,6 +63,7 @@ async fn test_get_users_error() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_executor)),
+        cache_pool: Arc::new(CachePool::Mock(cache_miss_mock())),
     };
 
     let response = get_users(State(state)).await;
@@ -65,8 +83,15 @@ async fn test_create_user_success() {
         .times(1)
         .returning(|_| Ok("OK".to_string()));
 
+    let mut mock_cache = MockCacheExecutor::new();
+    mock_cache
+        .expect_execute_invalidate_users_cache()
+        .times(1)
+        .returning(|| Ok(()));
+
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_executor)),
+        cache_pool: Arc::new(CachePool::Mock(mock_cache)),
     };
 
     let response = create_user(State(state), Json(new_user)).await;
@@ -87,6 +112,7 @@ async fn test_create_user_error() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_executor)),
+        cache_pool: Arc::new(CachePool::Mock(MockCacheExecutor::new())),
     };
 
     let response = create_user(State(state), Json(new_user)).await;
