@@ -18,6 +18,7 @@ pub fn create_routes(state: AppState) -> Router {
     Router::new()
         .route("/users", get(get_users))
         .route("/users", post(create_user))
+        .route("/users/pair", post(create_user_pair))
         .route("/ping", get(get_pong))
         .route("/its-a-rainy-day", get(call_external_service))
         .route("/protected-enter", get(protected_route))

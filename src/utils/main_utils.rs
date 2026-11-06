@@ -1,4 +1,4 @@
-use crate::database::connection::init_db;
+use crate::database::connection::{init_db, run_migrations};
 use crate::engine::db_engine::DbPool;
 use crate::routes::create_routes;
 use crate::state;
@@ -9,13 +9,19 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::signal;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 pub async fn service_starter() {
     dotenv().ok();
     setup_tracing_with_otel();
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
+    // Display ({}) rather than .expect(), whose Debug output would read
+    // "VersionMismatch(1)" instead of sqlx's readable message.
+    if let Err(err) = run_migrations(&db_pool).await {
+        error!("Failed to apply database migrations: {}", err);
+        panic!("Failed to apply database migrations: {}", err);
+    }
     let app_state = state::AppState {
         db_pool: Arc::new(DbPool::Real(db_pool)),
     };
