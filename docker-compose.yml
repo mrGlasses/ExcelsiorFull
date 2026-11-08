@@ -29,6 +29,7 @@ services:
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-excelsior-local}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       RUST_LOG: ${RUST_LOG:-debug,ms1=trace}
+      WORKER_SHUTDOWN_TIMEOUT_SECS: ${WORKER_SHUTDOWN_TIMEOUT_SECS:-8}
       RUST_BACKTRACE: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379
