@@ -2,6 +2,8 @@ use crate::database::connection::init_db;
 use crate::database::redis_connection::init_cache;
 use crate::engine::cache_engine::CachePool;
 use crate::engine::db_engine::DbPool;
+use crate::engine::telegram_engine::{DEFAULT_TELEGRAM_API_URL, TelegramApi};
+use crate::handlers::telegram_handler::{POLL_TIMEOUT_SECS, run_telegram_bot};
 use crate::handlers::worker_handler::{heartbeat_loop, stuck_loop};
 use crate::routes::create_routes;
 use crate::state;
@@ -14,12 +16,25 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 // Returns true for a clean shutdown, false if a worker failed (main exits with code 1).
 pub async fn service_starter() -> bool {
     dotenv().ok();
     setup_tracing_with_otel();
+
+    // Checked first, so a missing token stops the app before anything else starts.
+    let telegram_token = match std::env::var("TELEGRAM_BOT_TOKEN") {
+        Ok(token) if !token.trim().is_empty() => token,
+        _ => {
+            error!("TELEGRAM_BOT_TOKEN is missing");
+            return false;
+        }
+    };
+    let telegram_api_url =
+        std::env::var("TELEGRAM_API_URL").unwrap_or_else(|_| DEFAULT_TELEGRAM_API_URL.to_string());
+    let telegram_api = TelegramApi::new(&telegram_api_url, &telegram_token, POLL_TIMEOUT_SECS)
+        .expect("Failed to build the Telegram HTTP client");
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
     let cache_pool = init_cache().await.expect("Failed to connect to Redis");
@@ -44,6 +59,9 @@ pub async fn service_starter() -> bool {
         shutdown_timeout_from(std::env::var("WORKER_SHUTDOWN_TIMEOUT_SECS").ok());
     let mut workers = Workers::new(shutdown.clone(), shutdown_timeout);
     workers.spawn("heartbeat", heartbeat_loop);
+    workers.spawn("telegram", move |shutdown| {
+        run_telegram_bot(Box::new(telegram_api), shutdown)
+    });
     if std::env::var("DEMO_STUCK_WORKER").is_ok_and(|value| value == "true") {
         workers.spawn("stuck", stuck_loop);
     }
