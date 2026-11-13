@@ -503,6 +503,17 @@ jobs:
             echo "VPS_HOST secret set and ready to go!"
           fi
 
+      # The app exits at start without a bot token. Failing here, before anything
+      # touches the VPS, keeps the version that's running now alive.
+      - name: Check TELEGRAM_BOT_TOKEN secret
+        run: |
+          if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]; then
+            echo "Error: TELEGRAM_BOT_TOKEN secret is not set (Settings > Environments > Deploy)."
+            exit 1
+          else
+            echo "TELEGRAM_BOT_TOKEN secret set and ready to go!"
+          fi
+
       - name: Setup SSH
         run: |
           echo "Setting up SSH..."
@@ -566,6 +577,12 @@ jobs:
           # MongoDB
           MONGODB_HOST=mongodb
           MONGODB_PORT=27017
+
+          # Background workers
+          WORKER_SHUTDOWN_TIMEOUT_SECS=8
+
+          # Telegram bot (the production bot, never the dev one: one token, one poller)
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
 
           # App Version (auto-updated)
           APP_VERSION=${{ needs.version-bump.outputs.new_version }}
