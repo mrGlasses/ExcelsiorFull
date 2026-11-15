@@ -7,7 +7,7 @@ use ms1::{
     database, engine::cache_engine::CachePool, engine::db_engine::DbPool, routes, state::AppState,
 };
 use serial_test::serial;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 use std::sync::Arc;
 use std::sync::Once;
 use std::time::Duration;
@@ -37,10 +37,16 @@ fn setup_test_env() {
 // runtime that created them. A pool shared across tests would work fine for whichever
 // test initializes it, then fail for every later test with "a Tokio 1.x context was
 // found, but it is being shutdown" once the initializing test's runtime is gone.
-async fn create_test_db_pool() -> MySqlPool {
-    database::connection::init_db()
+async fn create_test_db_pool() -> PgPool {
+    let pool = database::connection::init_db()
         .await
-        .expect("Failed to connect to test database")
+        .expect("Failed to connect to test database");
+    // Same migrations the app runs at startup; sqlx takes a Postgres advisory lock
+    // while migrating, so tests running this in parallel don't step on each other.
+    database::connection::run_migrations(&pool)
+        .await
+        .expect("Failed to apply migrations to test database");
+    pool
 }
 
 // Same "one connection per test runtime" reasoning as create_test_db_pool above applies
@@ -82,9 +88,9 @@ async fn spawn_app() -> String {
 }
 
 // Helper function to clean up test data
-async fn cleanup_test_data(pool: &MySqlPool) {
+async fn cleanup_test_data(pool: &PgPool) {
     // Add cleanup queries here if needed
-    sqlx::query("DELETE FROM t_Users WHERE name = 'Test User'")
+    sqlx::query("DELETE FROM t_users WHERE name = 'Test User'")
         .execute(pool)
         .await
         .expect("Failed to clean up test data");
@@ -195,6 +201,102 @@ async fn test_create_user() {
     );
 
     cleanup_test_data(&pool).await;
+}
+
+async fn count_users_named(pool: &PgPool, names: &[&str]) -> i64 {
+    let names: Vec<String> = names.iter().map(|name| name.to_string()).collect();
+    sqlx::query_scalar("SELECT count(*) FROM t_users WHERE name = ANY($1)")
+        .bind(names)
+        .fetch_one(pool)
+        .await
+        .expect("Failed to count users")
+}
+
+async fn delete_users_named(pool: &PgPool, names: &[&str]) {
+    let names: Vec<String> = names.iter().map(|name| name.to_string()).collect();
+    sqlx::query("DELETE FROM t_users WHERE name = ANY($1)")
+        .bind(names)
+        .execute(pool)
+        .await
+        .expect("Failed to clean up test users");
+}
+
+#[tokio::test]
+async fn test_create_user_pair_commits_both() {
+    setup_test_env();
+    let pool = create_test_db_pool().await;
+    let address = spawn_app().await;
+    let names = ["PairTestAnn", "PairTestBob"];
+    delete_users_named(&pool, &names).await;
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/users/pair", address))
+        .json(&serde_json::json!({ "first": names[0], "second": names[1] }))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    assert_eq!(response.status().as_u16(), StatusCode::CREATED.as_u16());
+    assert_eq!(count_users_named(&pool, &names).await, 2);
+
+    delete_users_named(&pool, &names).await;
+}
+
+#[tokio::test]
+async fn test_create_user_pair_rolls_back_when_second_fails() {
+    setup_test_env();
+    let pool = create_test_db_pool().await;
+    let address = spawn_app().await;
+    let first = "PairTestCid";
+    delete_users_named(&pool, &[first]).await;
+
+    // t_users.name is VARCHAR(15), so the second insert fails after the first one ran.
+    let response = reqwest::Client::new()
+        .post(format!("{}/users/pair", address))
+        .json(&serde_json::json!({ "first": first, "second": "NameLongerThan15" }))
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    assert_eq!(
+        response.status().as_u16(),
+        StatusCode::INTERNAL_SERVER_ERROR.as_u16()
+    );
+    assert_eq!(count_users_named(&pool, &[first]).await, 0);
+}
+
+#[tokio::test]
+async fn test_uuid_and_jsonb_round_trip() {
+    setup_test_env();
+    let pool = create_test_db_pool().await;
+    // A temp table lives on one connection only, so everything runs in one
+    // transaction; it's rolled back at the end and nothing is left behind.
+    let mut tx = pool.begin().await.expect("Failed to begin transaction");
+
+    sqlx::query(
+        "CREATE TEMP TABLE uuid_json_check (id uuid PRIMARY KEY, data jsonb NOT NULL) ON COMMIT DROP",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("Failed to create temp table");
+
+    let written_id: sqlx::types::Uuid = sqlx::query_scalar(
+        "INSERT INTO uuid_json_check (id, data) VALUES (gen_random_uuid(), '{\"a\": 1}'::jsonb) RETURNING id",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Failed to insert uuid/jsonb row");
+
+    let (read_id, read_data): (sqlx::types::Uuid, serde_json::Value) =
+        sqlx::query_as("SELECT id, data FROM uuid_json_check")
+            .fetch_one(&mut *tx)
+            .await
+            .expect("Failed to read uuid/jsonb row");
+
+    assert_eq!(read_id, written_id);
+    assert_eq!(read_data, serde_json::json!({ "a": 1 }));
+
+    tx.rollback().await.expect("Failed to roll back");
 }
 
 #[tokio::test]

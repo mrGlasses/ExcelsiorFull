@@ -1,4 +1,4 @@
-use crate::database::connection::init_db;
+use crate::database::connection::{init_db, run_migrations};
 use crate::database::redis_connection::init_cache;
 use crate::engine::cache_engine::CachePool;
 use crate::engine::db_engine::DbPool;
@@ -37,6 +37,12 @@ pub async fn service_starter() -> bool {
         .expect("Failed to build the Telegram HTTP client");
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
+    // Display ({}) rather than .expect(), whose Debug output would read
+    // "VersionMismatch(1)" instead of sqlx's readable message.
+    if let Err(err) = run_migrations(&db_pool).await {
+        error!("Failed to apply database migrations: {}", err);
+        panic!("Failed to apply database migrations: {}", err);
+    }
     let cache_pool = init_cache().await.expect("Failed to connect to Redis");
     let app_state = state::AppState {
         db_pool: Arc::new(DbPool::Real(db_pool)),

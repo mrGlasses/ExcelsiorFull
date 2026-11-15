@@ -11,3 +11,10 @@ And it works!
 - `DEMO_STUCK_WORKER` — optional, demo only: `true` starts a worker that ignores the stop signal, to see the shutdown timeout.
 - `TELEGRAM_BOT_TOKEN` — **required**, the bot token from @BotFather; the app exits at start without it. Don't put a real token in `.env` (it's tracked in git): set it in your shell or IDE run configuration.
 - `TELEGRAM_API_URL` — optional, Telegram Bot API base URL (default `https://api.telegram.org`); tests point it at a fake server.
+- `DATABASE_MAX_CONNECTIONS` — optional, Postgres connection pool size (default `5`).
+
+## Database migrations
+
+The SQL files in `src/database/migrations` (`0001_...sql`, `0002_...sql`, ...) are applied
+automatically at startup by sqlx, and recorded in the `_sqlx_migrations` table. Never edit a
+file that has already been applied (the app refuses to start if you do); add a new numbered file instead.
