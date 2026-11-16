@@ -33,8 +33,6 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       WORKER_SHUTDOWN_TIMEOUT_SECS: ${WORKER_SHUTDOWN_TIMEOUT_SECS:-8}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      DISCORD_TOKEN: ${DISCORD_TOKEN}
-      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
     depends_on:
       db:
         condition: service_healthy

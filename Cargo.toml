@@ -21,11 +21,6 @@ reqwest = { version = "0.13.4", features = ["json", "query"] }
 anyhow = "1.0.97"
 async-trait = "0.1.77"
 tokio-util = "0.7"
-# Discord (DB-1..3): gateway = the live WebSocket, http = REST calls, model = the data types
-twilight-gateway = "0.18"
-twilight-http = "0.18"
-twilight-model = "0.18"
-twilight-util = { version = "0.18", features = ["builder"] }
 
 ##OpenTelemetry
 opentelemetry = { version = "0.32.0", features = ["trace", "metrics", "logs"] }

@@ -1,6 +1,5 @@
 pub mod cache_engine;
 pub mod db_engine;
-pub mod discord_engine;
 pub mod outbox_engine;
 pub mod telegram_engine;
 

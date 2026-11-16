@@ -528,16 +528,6 @@ jobs:
 
       # The app exits at start without a bot token. Failing here, before anything
       # touches the VPS, keeps the version that's running now alive.
-      # Same reason as the Telegram check below: the app exits at start without it.
-      - name: Check DISCORD_TOKEN secret
-        run: |
-          if [ -z "${{ secrets.DISCORD_TOKEN }}" ]; then
-            echo "Error: DISCORD_TOKEN secret is not set (Settings > Environments > Deploy)."
-            exit 1
-          else
-            echo "DISCORD_TOKEN secret set and ready to go!"
-          fi
-
       - name: Check TELEGRAM_BOT_TOKEN secret
         run: |
           if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]; then
@@ -616,11 +606,6 @@ jobs:
 
           # Telegram bot (the production bot, never the dev one: one token, one poller)
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-
-          # Discord bot (the production bot, never the dev one). DISCORD_GUILD_ID is optional:
-          # empty = slash commands registered globally.
-          DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-          DISCORD_GUILD_ID=${{ secrets.DISCORD_GUILD_ID }}
 
           # App Version (auto-updated)
           APP_VERSION=${{ needs.version-bump.outputs.new_version }}
