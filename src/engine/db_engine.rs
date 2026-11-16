@@ -1,15 +1,14 @@
 use crate::domain::database::User;
-use crate::engine::outbox_engine::insert_outbox_event;
 use crate::state::AppState;
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use axum::extract::State;
 #[cfg(test)]
 use mockall::automock;
-use sqlx::{PgConnection, Pool, Postgres, Row, query};
+use sqlx::{MySql, Pool, Row, query};
 
 // Wrapper type that can be either a real pool or a mock (in tests)
 pub enum DbPool {
-    Real(Pool<Postgres>),
+    Real(Pool<MySql>),
     #[cfg(test)]
     Mock(MockDatabaseExecutor),
 }
@@ -19,28 +18,13 @@ pub enum DbPool {
 pub trait DatabaseExecutor: Send + Sync {
     async fn execute_get_users(&self) -> Result<Vec<User>>;
     async fn execute_create_user(&self, name: String) -> Result<String>;
-    async fn execute_create_user_pair(&self, first: String, second: String) -> Result<String>;
-    async fn execute_create_demo_event(&self, msg: String) -> Result<String>;
-}
-
-// Query functions take `&mut PgConnection` instead of the pool, so the same function
-// works with either:
-//   - a plain connection: `insert_user(&mut *pool.acquire().await?, name)`
-//   - a transaction:      `insert_user(&mut *tx, name)` (a Transaction derefs to its connection)
-// Several of them sharing one transaction all commit together, or none do.
-pub async fn insert_user(conn: &mut PgConnection, name: &str) -> Result<()> {
-    query("CALL sp_insert_user($1)")
-        .bind(name)
-        .execute(conn)
-        .await?;
-    Ok(())
 }
 
 #[async_trait::async_trait]
-impl DatabaseExecutor for Pool<Postgres> {
+impl DatabaseExecutor for Pool<MySql> {
     async fn execute_get_users(&self) -> Result<Vec<User>> {
-        let users = query("SELECT * FROM sp_return_users();")
-            .map(|row: sqlx::postgres::PgRow| User {
+        let users = query("CALL sp_Return_USERS();")
+            .map(|row: sqlx::mysql::MySqlRow| User {
                 uid: row.get(0),
                 name: row.get(1),
             })
@@ -50,32 +34,10 @@ impl DatabaseExecutor for Pool<Postgres> {
     }
 
     async fn execute_create_user(&self, name: String) -> Result<String> {
-        let mut conn = self.acquire().await?;
-        insert_user(&mut conn, &name).await?;
-        Ok("OK".to_string())
-    }
-
-    async fn execute_create_user_pair(&self, first: String, second: String) -> Result<String> {
-        let mut tx = self.begin().await?;
-        insert_user(&mut tx, &first).await?;
-        insert_user(&mut tx, &second).await?;
-        // Returning early with `?` above drops `tx` without committing,
-        // and sqlx rolls a dropped transaction back.
-        tx.commit().await?;
-        Ok("OK".to_string())
-    }
-
-    // Demo for the outbox (OB-1): the event is written inside a transaction. Real code
-    // would also change its own data in that same transaction, before the event.
-    async fn execute_create_demo_event(&self, msg: String) -> Result<String> {
-        let mut tx = self.begin().await?;
-        insert_outbox_event(&mut tx, "DemoEvent", &serde_json::json!({ "msg": msg })).await?;
-        if msg == "rollback" {
-            // Fails on purpose AFTER the insert: dropping `tx` rolls the event back,
-            // so it never exists and the worker never sees it.
-            return Err(anyhow!("demo failure after insert, rolled back"));
-        }
-        tx.commit().await?;
+        let _ = query("CALL sp_Insert_User(?)")
+            .bind(name)
+            .execute(self)
+            .await?;
         Ok("OK".to_string())
     }
 }
@@ -97,22 +59,6 @@ impl DatabaseExecutor for DbPool {
             DbPool::Mock(mock) => mock.execute_create_user(name).await,
         }
     }
-
-    async fn execute_create_user_pair(&self, first: String, second: String) -> Result<String> {
-        match self {
-            DbPool::Real(pool) => pool.execute_create_user_pair(first, second).await,
-            #[cfg(test)]
-            DbPool::Mock(mock) => mock.execute_create_user_pair(first, second).await,
-        }
-    }
-
-    async fn execute_create_demo_event(&self, msg: String) -> Result<String> {
-        match self {
-            DbPool::Real(pool) => pool.execute_create_demo_event(msg).await,
-            #[cfg(test)]
-            DbPool::Mock(mock) => mock.execute_create_demo_event(msg).await,
-        }
-    }
 }
 
 pub async fn get_users_db_call(State(state): State<AppState>) -> Result<Vec<User>> {
@@ -121,19 +67,4 @@ pub async fn get_users_db_call(State(state): State<AppState>) -> Result<Vec<User
 
 pub async fn create_user_db_call(State(state): State<AppState>, name: String) -> Result<String> {
     state.db_pool.execute_create_user(name).await
-}
-
-pub async fn create_user_pair_db_call(
-    State(state): State<AppState>,
-    first: String,
-    second: String,
-) -> Result<String> {
-    state.db_pool.execute_create_user_pair(first, second).await
-}
-
-pub async fn create_demo_event_db_call(
-    State(state): State<AppState>,
-    msg: String,
-) -> Result<String> {
-    state.db_pool.execute_create_demo_event(msg).await
 }

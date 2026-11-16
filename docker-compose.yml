@@ -20,10 +20,9 @@ services:
     environment:
       DATABASE_NAME: ${DATABASE_NAME:-TESTMS}
       DATABASE_HOST: ${DATABASE_HOST:-host.docker.internal}
-      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_USER: ${DATABASE_USER:-root}
       DATABASE_PSWD: ${DATABASE_PSWD:-ENNBA}
-      DATABASE_PORT: ${DATABASE_PORT:-1021}
-      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-5}
+      DATABASE_PORT: ${DATABASE_PORT:-3306}
       MS_PORT: ${MS_PORT:-3000}
       EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-http://localhost:3001}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://grafana-allinone:4317}
@@ -65,24 +64,23 @@ services:
           memory: 512M
 
   # ============================================
-  # PostgreSQL Database
+  # MariaDB Database
   # ============================================
   db:
-    container_name: postgres-local
-    image: postgres:16
+    container_name: mariadb-local
+    image: mariadb:latest
     restart: always
     ports:
-      - "0.0.0.0:1021:5432"
+      - "0.0.0.0:1021:3306"
     environment:
-      POSTGRES_USER: ${DATABASE_USER:-postgres}
-      POSTGRES_PASSWORD: ${DATABASE_PSWD:-ENNBA}
-      POSTGRES_DB: ${DATABASE_NAME:-TESTMS}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-ENNBA}
+      MARIADB_DATABASE: ${DATABASE_NAME:-TESTMS}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mariadb-data:/var/lib/mysql
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -96,7 +94,7 @@ services:
           memory: 1G
 
   # ============================================
-  # Adminer (PostgreSQL Web UI)
+  # Adminer (MariaDB Web UI)
   # ============================================
   adminer:
     container_name: mariadbadm-local
@@ -227,7 +225,7 @@ services:
 # Persistent Volumes
 # ============================================
 volumes:
-  postgres-data:
+  mariadb-data:
   mongo-data:
   redis-data:
   grafana-data:
