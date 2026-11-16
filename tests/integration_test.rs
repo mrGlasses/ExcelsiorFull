@@ -358,6 +358,7 @@ async fn test_service_starter_initialization() {
         std::env::set_var("MS_PORT", "3000");
     }
     let _telegram = start_fake_telegram().await;
+    start_fake_discord_gateway().await;
 
     println!("Testing service starter initialization...");
     // Spawn service_starter in a background task
@@ -406,6 +407,7 @@ async fn test_service_starter_graceful_shutdown() {
         std::env::set_var("MS_PORT", "9998");
     }
     let _telegram = start_fake_telegram().await;
+    start_fake_discord_gateway().await;
 
     // Spawn service_starter in a background task
     let server_handle = tokio::spawn(async move {
@@ -461,6 +463,44 @@ async fn test_service_starter_without_telegram_token_exits() {
     // existing variable, so a real token in .env can't sneak back in.
     unsafe {
         std::env::set_var("TELEGRAM_BOT_TOKEN", "");
+    }
+
+    let clean_shutdown = tokio::time::timeout(Duration::from_secs(5), service_starter())
+        .await
+        .expect("service_starter should return at once without a token");
+
+    // false = main() exits with code 1
+    assert!(!clean_shutdown);
+}
+
+// A fake Discord gateway for the tests that start the whole app: it accepts the bot's
+// connection and never answers, so the bot just waits (no Ready = no REST calls at all).
+// Tests must never talk to the real Discord.
+async fn start_fake_discord_gateway() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut open_connections = Vec::new();
+        while let Ok((socket, _)) = listener.accept().await {
+            open_connections.push(socket); // keep it open, say nothing
+        }
+    });
+    unsafe {
+        std::env::set_var("DISCORD_TOKEN", "fake-discord-token");
+        std::env::set_var("DISCORD_GATEWAY_URL", format!("ws://{}", address));
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn test_service_starter_without_discord_token_exits() {
+    // DB-1 step 2: Telegram is fine (fake), but there's no Discord token.
+    setup_test_env();
+    let _telegram = start_fake_telegram().await;
+    // Empty rather than removed: dotenv() inside service_starter never overwrites an
+    // existing variable, so a real token in .env can't sneak back in.
+    unsafe {
+        std::env::set_var("DISCORD_TOKEN", "");
     }
 
     let clean_shutdown = tokio::time::timeout(Duration::from_secs(5), service_starter())

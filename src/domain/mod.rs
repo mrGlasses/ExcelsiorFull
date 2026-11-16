@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod database;
+pub mod discord;
 pub mod general;
 pub mod outbox;
 pub mod telegram;
