@@ -1,4 +1,5 @@
 use crate::handlers::cache_handler::*;
+use crate::handlers::outbox_handler::create_demo_event;
 use crate::handlers::simple_handler::*;
 use crate::{handlers::db_handler::*, state::AppState};
 use axum::http::StatusCode;
@@ -19,6 +20,7 @@ pub fn create_routes(state: AppState) -> Router {
     Router::new()
         .route("/users", get(get_users))
         .route("/users", post(create_user))
+        .route("/demo-events", post(create_demo_event)) // outbox demo: {"msg": "hi"}
         .route("/ping", get(get_pong))
         .route("/its-a-rainy-day", get(call_external_service))
         .route("/protected-enter", get(protected_route))
