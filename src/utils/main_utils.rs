@@ -1,8 +1,9 @@
-use crate::database::connection::init_db;
+use crate::database::connection::{init_db, run_migrations};
 use crate::database::redis_connection::init_cache;
 use crate::engine::cache_engine::CachePool;
 use crate::engine::db_engine::DbPool;
 use crate::engine::telegram_engine::{DEFAULT_TELEGRAM_API_URL, TelegramApi};
+use crate::handlers::outbox_handler::{outbox_settings_from, run_outbox_worker};
 use crate::handlers::telegram_handler::{POLL_TIMEOUT_SECS, run_telegram_bot};
 use crate::handlers::worker_handler::{heartbeat_loop, stuck_loop};
 use crate::routes::create_routes;
@@ -37,7 +38,16 @@ pub async fn service_starter() -> bool {
         .expect("Failed to build the Telegram HTTP client");
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
+    // Display ({}) rather than .expect(), whose Debug output would read
+    // "VersionMismatch(1)" instead of sqlx's readable message.
+    if let Err(err) = run_migrations(&db_pool).await {
+        error!("Failed to apply database migrations: {}", err);
+        panic!("Failed to apply database migrations: {}", err);
+    }
     let cache_pool = init_cache().await.expect("Failed to connect to Redis");
+    // The outbox worker gets its own handle to the pool (a Pool is a cheap, shared handle).
+    let outbox_pool = db_pool.clone();
+    let outbox_settings = outbox_settings_from(std::env::var("OUTBOX_MAX_ATTEMPTS").ok());
     let app_state = state::AppState {
         db_pool: Arc::new(DbPool::Real(db_pool)),
         cache_pool: Arc::new(CachePool::Real(cache_pool)),
@@ -59,6 +69,9 @@ pub async fn service_starter() -> bool {
         shutdown_timeout_from(std::env::var("WORKER_SHUTDOWN_TIMEOUT_SECS").ok());
     let mut workers = Workers::new(shutdown.clone(), shutdown_timeout);
     workers.spawn("heartbeat", heartbeat_loop);
+    workers.spawn("outbox", move |shutdown| {
+        run_outbox_worker(outbox_pool, outbox_settings, shutdown)
+    });
     workers.spawn("telegram", move |shutdown| {
         run_telegram_bot(Box::new(telegram_api), shutdown)
     });
