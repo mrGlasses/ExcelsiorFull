@@ -10,6 +10,9 @@ And it works!
 - `DEMO_HEARTBEAT_FAIL_AFTER` — optional, demo only: makes the `heartbeat` worker fail after that many beats, so the app exits with code 1.
 - `DEMO_STUCK_WORKER` — optional, demo only: `true` starts a worker that ignores the stop signal, to see the shutdown timeout.
 - `TELEGRAM_BOT_TOKEN` — **required**, the bot token from @BotFather; the app exits at start without it. Don't put a real token in `.env` (it's tracked in git): set it in your shell or IDE run configuration.
+- `DISCORD_TOKEN` — **required**, the bot token from the Discord Developer Portal (Bot tab); the app exits at start without it. Same rule as Telegram: never in `.env`.
+- `DISCORD_GUILD_ID` — optional, a server id: slash commands are registered only there and show up at once (good for development). Unset = registered globally.
+- `DISCORD_GATEWAY_URL` — optional, tests only: connect to this address instead of Discord's gateway.
 - `TELEGRAM_API_URL` — optional, Telegram Bot API base URL (default `https://api.telegram.org`); tests point it at a fake server.
 - `OUTBOX_MAX_ATTEMPTS` — optional, how many times the outbox worker tries a failing event before setting it aside (default `10`).
 

@@ -3,6 +3,7 @@ use crate::database::redis_connection::init_cache;
 use crate::engine::cache_engine::CachePool;
 use crate::engine::db_engine::DbPool;
 use crate::engine::telegram_engine::{DEFAULT_TELEGRAM_API_URL, TelegramApi};
+use crate::handlers::discord_handler::{DiscordSettings, discord_guild_id_from, run_discord_bot};
 use crate::handlers::outbox_handler::{outbox_settings_from, run_outbox_worker};
 use crate::handlers::telegram_handler::{POLL_TIMEOUT_SECS, run_telegram_bot};
 use crate::handlers::worker_handler::{heartbeat_loop, stuck_loop};
@@ -36,6 +37,19 @@ pub async fn service_starter() -> bool {
         std::env::var("TELEGRAM_API_URL").unwrap_or_else(|_| DEFAULT_TELEGRAM_API_URL.to_string());
     let telegram_api = TelegramApi::new(&telegram_api_url, &telegram_token, POLL_TIMEOUT_SECS)
         .expect("Failed to build the Telegram HTTP client");
+
+    let discord_token = match std::env::var("DISCORD_TOKEN") {
+        Ok(token) if !token.trim().is_empty() => token,
+        _ => {
+            error!("DISCORD_TOKEN is missing");
+            return false;
+        }
+    };
+    let discord_settings = DiscordSettings {
+        token: discord_token,
+        guild_id: discord_guild_id_from(std::env::var("DISCORD_GUILD_ID").ok()),
+        gateway_url: std::env::var("DISCORD_GATEWAY_URL").ok(),
+    };
 
     let db_pool = init_db().await.expect("Failed to connect to DB");
     // Display ({}) rather than .expect(), whose Debug output would read
@@ -74,6 +88,9 @@ pub async fn service_starter() -> bool {
     });
     workers.spawn("telegram", move |shutdown| {
         run_telegram_bot(Box::new(telegram_api), shutdown)
+    });
+    workers.spawn("discord", move |shutdown| {
+        run_discord_bot(discord_settings, shutdown)
     });
     if std::env::var("DEMO_STUCK_WORKER").is_ok_and(|value| value == "true") {
         workers.spawn("stuck", stuck_loop);
