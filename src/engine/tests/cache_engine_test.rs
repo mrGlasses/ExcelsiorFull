@@ -1,13 +1,12 @@
 use crate::engine::cache_engine::*;
-use crate::engine::db_engine::{DbPool, MockDatabaseExecutor};
 use crate::state::AppState;
 use axum::extract::State;
 use std::sync::Arc;
 
 fn state_with_mock(mock_cache: MockCacheExecutor) -> AppState {
     AppState {
-        db_pool: Arc::new(DbPool::Mock(MockDatabaseExecutor::new())),
         cache_pool: Arc::new(CachePool::Mock(mock_cache)),
+        ..Default::default()
     }
 }
 

@@ -134,3 +134,19 @@ pub async fn handle_pending_events(
     }
     Ok(())
 }
+
+// Starts the outbox worker (see utils::app_workers).
+pub fn start(workers: &mut crate::utils::workers::Workers, state: &AppState) -> bool {
+    // The worker gets its own handle to the pool (a Pool is a cheap, shared handle).
+    let pool = match state.db_pool.as_ref() {
+        crate::engine::db_engine::DbPool::Real(pool) => pool.clone(),
+        // Unit tests have no database, so there's nothing for the worker to read.
+        #[cfg(test)]
+        crate::engine::db_engine::DbPool::Mock(_) => return true,
+    };
+    let settings = outbox_settings_from(std::env::var("OUTBOX_MAX_ATTEMPTS").ok());
+    workers.spawn("outbox", move |shutdown| {
+        run_outbox_worker(pool, settings, shutdown)
+    });
+    true
+}

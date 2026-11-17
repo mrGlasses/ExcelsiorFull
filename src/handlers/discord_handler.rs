@@ -242,3 +242,27 @@ pub fn parse_choice(custom_id: &str) -> Option<(&'static str, u64)> {
     }
     Some((choice, owner_id))
 }
+
+// Reads the Discord settings and starts the bot (see utils::app_workers).
+// False (and the app exits with code 1) when DISCORD_TOKEN is missing.
+pub fn start(
+    workers: &mut crate::utils::workers::Workers,
+    _state: &crate::state::AppState,
+) -> bool {
+    let token = match std::env::var("DISCORD_TOKEN") {
+        Ok(token) if !token.trim().is_empty() => token,
+        _ => {
+            tracing::error!("DISCORD_TOKEN is missing");
+            return false;
+        }
+    };
+    let settings = DiscordSettings {
+        token,
+        guild_id: discord_guild_id_from(std::env::var("DISCORD_GUILD_ID").ok()),
+        gateway_url: std::env::var("DISCORD_GATEWAY_URL").ok(),
+    };
+    workers.spawn("discord", move |shutdown| {
+        run_discord_bot(settings, shutdown)
+    });
+    true
+}
