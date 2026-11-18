@@ -1,6 +1,8 @@
+use crate::engine::db_engine::DbPool;
 use sqlx::{MySql, Pool, mysql::MySqlPoolOptions};
+use std::sync::Arc;
 use std::time::Duration;
-use tracing::info;
+use tracing::{error, info};
 
 pub async fn init_db() -> Result<Pool<MySql>, sqlx::Error> {
     let database_builder = &format!(
@@ -58,4 +60,16 @@ async fn count_applied_migrations(pool: &Pool<MySql>) -> Result<i64, sqlx::Error
     sqlx::query_scalar("SELECT COUNT(*) FROM _sqlx_migrations")
         .fetch_one(pool)
         .await
+}
+
+// Connects and migrates: what the app needs at startup (see state::build_app_state).
+pub async fn start() -> Arc<DbPool> {
+    let pool = init_db().await.expect("Failed to connect to DB");
+    // Display ({}) rather than .expect(), whose Debug output would read
+    // "VersionMismatch(1)" instead of sqlx's readable message.
+    if let Err(err) = run_migrations(&pool).await {
+        error!("Failed to apply database migrations: {}", err);
+        panic!("Failed to apply database migrations: {}", err);
+    }
+    Arc::new(DbPool::Real(pool))
 }

@@ -1,6 +1,5 @@
 use crate::domain::cache::CacheValue;
 use crate::engine::cache_engine::{CachePool, MockCacheExecutor};
-use crate::engine::db_engine::{DbPool, MockDatabaseExecutor};
 use crate::handlers::cache_handler::*;
 use crate::state::AppState;
 use axum::http::StatusCode;
@@ -9,8 +8,8 @@ use std::sync::Arc;
 
 fn state_with_mock(mock_cache: MockCacheExecutor) -> AppState {
     AppState {
-        db_pool: Arc::new(DbPool::Mock(MockDatabaseExecutor::new())),
         cache_pool: Arc::new(CachePool::Mock(mock_cache)),
+        ..Default::default()
     }
 }
 

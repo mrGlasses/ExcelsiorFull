@@ -1,5 +1,4 @@
 use crate::domain::outbox::{DemoEventRequest, OutboxEvent};
-use crate::engine::cache_engine::{CachePool, MockCacheExecutor};
 use crate::engine::db_engine::{DbPool, MockDatabaseExecutor};
 use crate::handlers::outbox_handler::*;
 use crate::state::AppState;
@@ -14,7 +13,7 @@ fn state_with(mock_db: MockDatabaseExecutor) -> AppState {
     AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
         // No expectations: the outbox route must not touch the cache.
-        cache_pool: Arc::new(CachePool::Mock(MockCacheExecutor::new())),
+        ..Default::default()
     }
 }
 

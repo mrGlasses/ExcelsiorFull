@@ -24,3 +24,9 @@ pub async fn init_cache() -> Result<ConnectionManager, redis::RedisError> {
     let client = redis::Client::open(connection_info)?;
     ConnectionManager::new(client).await
 }
+
+// What the app needs at startup (see state::build_app_state).
+pub async fn start() -> std::sync::Arc<crate::engine::cache_engine::CachePool> {
+    let connection = init_cache().await.expect("Failed to connect to Redis");
+    std::sync::Arc::new(crate::engine::cache_engine::CachePool::Real(connection))
+}
