@@ -151,3 +151,26 @@ async fn handle_button_tap(api: &dyn TelegramExecutor, query: CallbackQuery) -> 
     api.answer_callback_query(query.id).await?;
     edited
 }
+
+// Reads the Telegram settings and starts the bot (see utils::app_workers).
+// False (and the app exits with code 1) when TELEGRAM_BOT_TOKEN is missing.
+pub fn start(
+    workers: &mut crate::utils::workers::Workers,
+    _state: &crate::state::AppState,
+) -> bool {
+    let token = match std::env::var("TELEGRAM_BOT_TOKEN") {
+        Ok(token) if !token.trim().is_empty() => token,
+        _ => {
+            tracing::error!("TELEGRAM_BOT_TOKEN is missing");
+            return false;
+        }
+    };
+    let api_url = std::env::var("TELEGRAM_API_URL")
+        .unwrap_or_else(|_| crate::engine::telegram_engine::DEFAULT_TELEGRAM_API_URL.to_string());
+    let api = crate::engine::telegram_engine::TelegramApi::new(&api_url, &token, POLL_TIMEOUT_SECS)
+        .expect("Failed to build the Telegram HTTP client");
+    workers.spawn("telegram", move |shutdown| {
+        run_telegram_bot(Box::new(api), shutdown)
+    });
+    true
+}

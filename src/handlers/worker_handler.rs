@@ -46,3 +46,16 @@ pub async fn stuck_loop(_shutdown: CancellationToken) -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_secs(3600)).await;
     }
 }
+
+// Starts the demo workers (see utils::app_workers). The `stuck` one only with
+// DEMO_STUCK_WORKER=true, to see the shutdown timeout working.
+pub fn start(
+    workers: &mut crate::utils::workers::Workers,
+    _state: &crate::state::AppState,
+) -> bool {
+    workers.spawn("heartbeat", heartbeat_loop);
+    if std::env::var("DEMO_STUCK_WORKER").is_ok_and(|value| value == "true") {
+        workers.spawn("stuck", stuck_loop);
+    }
+    true
+}

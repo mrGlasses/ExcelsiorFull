@@ -1,66 +1,23 @@
-use crate::database::connection::{init_db, run_migrations};
-use crate::database::redis_connection::init_cache;
-use crate::engine::cache_engine::CachePool;
-use crate::engine::db_engine::DbPool;
-use crate::engine::telegram_engine::{DEFAULT_TELEGRAM_API_URL, TelegramApi};
-use crate::handlers::outbox_handler::{outbox_settings_from, run_outbox_worker};
-use crate::handlers::telegram_handler::{POLL_TIMEOUT_SECS, run_telegram_bot};
-use crate::handlers::worker_handler::{heartbeat_loop, stuck_loop};
 use crate::routes::create_routes;
-use crate::state;
+use crate::state::build_app_state;
+use crate::utils::app_workers::start_app_workers;
 use crate::utils::otel_config::{setup_tracing_with_otel, shutdown_telemetry};
 use crate::utils::un_utils::start_message;
 use crate::utils::workers::{Workers, shutdown_timeout_from};
 use dotenv::dotenv;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 // Returns true for a clean shutdown, false if a worker failed (main exits with code 1).
 pub async fn service_starter() -> bool {
     dotenv().ok();
     setup_tracing_with_otel();
 
-    // Checked first, so a missing token stops the app before anything else starts.
-    let telegram_token = match std::env::var("TELEGRAM_BOT_TOKEN") {
-        Ok(token) if !token.trim().is_empty() => token,
-        _ => {
-            error!("TELEGRAM_BOT_TOKEN is missing");
-            return false;
-        }
-    };
-    let telegram_api_url =
-        std::env::var("TELEGRAM_API_URL").unwrap_or_else(|_| DEFAULT_TELEGRAM_API_URL.to_string());
-    let telegram_api = TelegramApi::new(&telegram_api_url, &telegram_token, POLL_TIMEOUT_SECS)
-        .expect("Failed to build the Telegram HTTP client");
-
-    let db_pool = init_db().await.expect("Failed to connect to DB");
-    // Display ({}) rather than .expect(), whose Debug output would read
-    // "VersionMismatch(1)" instead of sqlx's readable message.
-    if let Err(err) = run_migrations(&db_pool).await {
-        error!("Failed to apply database migrations: {}", err);
-        panic!("Failed to apply database migrations: {}", err);
-    }
-    let cache_pool = init_cache().await.expect("Failed to connect to Redis");
-    // The outbox worker gets its own handle to the pool (a Pool is a cheap, shared handle).
-    let outbox_pool = db_pool.clone();
-    let outbox_settings = outbox_settings_from(std::env::var("OUTBOX_MAX_ATTEMPTS").ok());
-    let app_state = state::AppState {
-        db_pool: Arc::new(DbPool::Real(db_pool)),
-        cache_pool: Arc::new(CachePool::Real(cache_pool)),
-    };
-
-    let app = create_routes(app_state);
-
-    let pre_port = std::env::var("MS_PORT").expect("MS_PORT must be set.");
-    let port = pre_port.parse().expect("MS_PORT must be a number.");
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-
-    let server = TcpListener::bind(&addr).await.unwrap();
+    // Connects to the database (and migrates it) and to Redis: see state.rs.
+    let state = build_app_state().await;
 
     // One token tells everyone to stop: cancelled by Ctrl+C/SIGTERM, or by a failing worker.
     let shutdown = CancellationToken::new();
@@ -68,16 +25,20 @@ pub async fn service_starter() -> bool {
     let shutdown_timeout =
         shutdown_timeout_from(std::env::var("WORKER_SHUTDOWN_TIMEOUT_SECS").ok());
     let mut workers = Workers::new(shutdown.clone(), shutdown_timeout);
-    workers.spawn("heartbeat", heartbeat_loop);
-    workers.spawn("outbox", move |shutdown| {
-        run_outbox_worker(outbox_pool, outbox_settings, shutdown)
-    });
-    workers.spawn("telegram", move |shutdown| {
-        run_telegram_bot(Box::new(telegram_api), shutdown)
-    });
-    if std::env::var("DEMO_STUCK_WORKER").is_ok_and(|value| value == "true") {
-        workers.spawn("stuck", stuck_loop);
+    // Before the server starts, so a missing setting (a bot token...) stops the app right
+    // away; the workers already spawned are stopped when `workers` is dropped.
+    if !start_app_workers(&mut workers, &state) {
+        return false;
     }
+
+    let app = create_routes(state);
+
+    let pre_port = std::env::var("MS_PORT").expect("MS_PORT must be set.");
+    let port = pre_port.parse().expect("MS_PORT must be a number.");
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+
+    let server = TcpListener::bind(&addr).await.unwrap();
 
     //info!("Excelsior listening on {}", addr); //tracing mode startup
     start_message(addr.to_string()).await; //default mode startup

@@ -82,7 +82,17 @@ pub async fn run_outbox_worker(
     loop {
         // First, everything already waiting: events that committed while the app was
         // down (OB-3), or that a notification didn't cover.
-        handle_pending_events(&pool, &settings, &shutdown).await?;
+        // A database error here (a dropped connection, the DB restarting) is NOT fatal:
+        // the events are still in the table, so log it and try again at the next
+        // re-check. The pool opens a fresh connection by itself. Failing the worker
+        // would stop the whole app (HTTP and bots too) for a network blip.
+        if let Err(err) = handle_pending_events(&pool, &settings, &shutdown).await {
+            warn!(
+                "outbox pass failed, retrying in {}s: {}",
+                settings.recheck_interval.as_secs_f32(),
+                err
+            );
+        }
 
         tokio::select! {
             biased;
@@ -133,4 +143,20 @@ pub async fn handle_pending_events(
         tx.commit().await?;
     }
     Ok(())
+}
+
+// Starts the outbox worker (see utils::app_workers).
+pub fn start(workers: &mut crate::utils::workers::Workers, state: &AppState) -> bool {
+    // The worker gets its own handle to the pool (a Pool is a cheap, shared handle).
+    let pool = match state.db_pool.as_ref() {
+        crate::engine::db_engine::DbPool::Real(pool) => pool.clone(),
+        // Unit tests have no database, so there's nothing for the worker to read.
+        #[cfg(test)]
+        crate::engine::db_engine::DbPool::Mock(_) => return true,
+    };
+    let settings = outbox_settings_from(std::env::var("OUTBOX_MAX_ATTEMPTS").ok());
+    workers.spawn("outbox", move |shutdown| {
+        run_outbox_worker(pool, settings, shutdown)
+    });
+    true
 }

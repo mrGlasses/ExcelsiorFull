@@ -112,7 +112,7 @@ async fn test_create_user_error() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_executor)),
-        cache_pool: Arc::new(CachePool::Mock(MockCacheExecutor::new())),
+        ..Default::default()
     };
 
     let response = create_user(State(state), Json(new_user)).await;

@@ -1,12 +1,13 @@
-use crate::handlers::cache_handler::*;
-use crate::handlers::outbox_handler::create_demo_event;
-use crate::handlers::simple_handler::*;
-use crate::{handlers::db_handler::*, state::AppState};
+// One file per feature, each with `pub fn routes() -> Router<AppState>`, merged below.
+// To add routes: a new `<feature>_routes.rs`, one `pub mod` line and one `.merge` line.
+pub mod cache_routes;
+pub mod outbox_routes;
+pub mod simple_routes;
+pub mod user_routes;
+
+use crate::state::AppState;
+use axum::Router;
 use axum::http::StatusCode;
-use axum::{
-    Router,
-    routing::{delete, get, post, put},
-};
 use std::time::Duration;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::compression::CompressionLayer;
@@ -18,21 +19,10 @@ use tracing::Span;
 
 pub fn create_routes(state: AppState) -> Router {
     Router::new()
-        .route("/users", get(get_users))
-        .route("/users", post(create_user))
-        .route("/demo-events", post(create_demo_event)) // outbox demo: {"msg": "hi"}
-        .route("/ping", get(get_pong))
-        .route("/its-a-rainy-day", get(call_external_service))
-        .route("/protected-enter", get(protected_route))
-        .route("/params/{param_1}/another_p/{param_2}", get(get_params)) // localhost/params/1/another_p/textTest
-        .route("/question_separator", get(get_question)) // localhost/question_separator?name=Jack&age=25&active=true
-        .route("/body-data", post(post_body_data))
-        // Generic Redis CRUD demo, separate from the get_users cache-aside above:
-        // localhost/cache/some-key with a JSON body {"value": "..."} for create/update
-        .route("/cache/{key}", get(get_cache_entry))
-        .route("/cache/{key}", post(create_cache_entry))
-        .route("/cache/{key}", put(update_cache_entry))
-        .route("/cache/{key}", delete(delete_cache_entry))
+        .merge(simple_routes::routes())
+        .merge(user_routes::routes())
+        .merge(cache_routes::routes())
+        .merge(outbox_routes::routes())
         .layer((
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
@@ -57,5 +47,3 @@ pub fn create_routes(state: AppState) -> Router {
         ))
         .with_state(state)
 }
-
-//more than 1 route file? search for "axum merge routes"

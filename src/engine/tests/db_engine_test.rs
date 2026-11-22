@@ -1,13 +1,8 @@
 use crate::domain::database::User;
-use crate::engine::cache_engine::{CachePool, MockCacheExecutor};
 use crate::engine::db_engine::*;
 use crate::state::AppState;
 use axum::extract::State;
 use std::sync::Arc;
-
-fn empty_cache_pool() -> Arc<CachePool> {
-    Arc::new(CachePool::Mock(MockCacheExecutor::new()))
-}
 
 #[tokio::test]
 async fn test_get_users_db_call() {
@@ -24,7 +19,7 @@ async fn test_get_users_db_call() {
     // Create AppState with our mock wrapped in DbPool
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     // Test the actual function
@@ -47,7 +42,7 @@ async fn test_get_users_db_call_empty() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     let result = get_users_db_call(State(state)).await.unwrap();
@@ -78,7 +73,7 @@ async fn test_get_users_db_call_multiple_users() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     let result = get_users_db_call(State(state)).await.unwrap();
@@ -100,7 +95,7 @@ async fn test_get_users_db_call_propagates_error() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     let result = get_users_db_call(State(state)).await;
@@ -123,7 +118,7 @@ async fn test_create_user_db_call() {
     // Create AppState with our mock wrapped in DbPool
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     // Test the actual function
@@ -146,7 +141,7 @@ async fn test_create_user_db_call_propagates_error() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     let result = create_user_db_call(State(state), "Test User".to_string()).await;
@@ -173,7 +168,7 @@ async fn test_create_user_db_call_passes_name_through_unmodified() {
 
     let state = AppState {
         db_pool: Arc::new(DbPool::Mock(mock_db)),
-        cache_pool: empty_cache_pool(),
+        ..Default::default()
     };
 
     let result = create_user_db_call(State(state), malicious_name).await;
