@@ -58,9 +58,11 @@ jobs:
 
       - name: Set Architecture Output
         id: set-arch
+        env:
+          INPUT_BUILD_ARCH: ${{ github.event.inputs.build_architecture || 'arm64-only' }}
         run: |
           # Use input if manual, otherwise default to arm64-only
-          ARCH="${{ github.event.inputs.build_architecture || 'arm64-only' }}"
+          ARCH="$INPUT_BUILD_ARCH"
           echo "arch=$ARCH" >> $GITHUB_OUTPUT
 
       - name: Repository to lowercase
@@ -86,17 +88,24 @@ jobs:
 
       - name: Determine version type from PR
         id: determine-version
+        # HFEX0001: the PR title/body are passed as environment variables, never pasted
+        # into the script with ${{ }}. Pasted, a backtick or $( ) in a PR description
+        # became a command that ran here (2026-11-22: `/ping` and `DISCORD_TOKEN` in a
+        # description were run as commands and broke the deploy). As variables, bash
+        # only ever reads them as text.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION_TYPE: ${{ github.event.inputs.version_type }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             # Manual dispatch - use the input
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
+            VERSION_TYPE="$INPUT_VERSION_TYPE"
           else
             # PR merge - extract from PR title or body
-            PR_TITLE="${{ github.event.pull_request.title }}"
-            PR_BODY="${{ github.event.pull_request.body }}"
-
             # Combine title and body for searching (case-insensitive)
-            COMBINED=$(echo "$PR_TITLE $PR_BODY" | tr '[:upper:]' '[:lower:]')
+            COMBINED=$(printf '%s %s' "$PR_TITLE" "$PR_BODY" | tr '[:upper:]' '[:lower:]')
 
             if [[ "$COMBINED" == *"[major]"* ]]; then
               VERSION_TYPE="major"
