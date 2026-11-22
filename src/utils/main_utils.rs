@@ -16,6 +16,16 @@ pub async fn service_starter() -> bool {
     dotenv().ok();
     setup_tracing_with_otel();
 
+    let clean_shutdown = run_service().await;
+
+    // Here, not inside run_service(): every way out of it (a worker that couldn't start,
+    // a failing worker, Ctrl+C) passes this line, so the buffered traces are always sent.
+    shutdown_telemetry();
+
+    clean_shutdown
+}
+
+async fn run_service() -> bool {
     // Connects to the database (and migrates it) and to Redis: see state.rs.
     let state = build_app_state().await;
 
@@ -62,9 +72,6 @@ pub async fn service_starter() -> bool {
     let (_, _, any_worker_failed) =
         tokio::join!(wait_for_signal, http_server, workers.run_until_shutdown());
     info!("server stopped");
-
-    info!("Shutting down OpenTelemetry...");
-    shutdown_telemetry();
 
     !any_worker_failed
 }
