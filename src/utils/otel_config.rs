@@ -3,9 +3,11 @@ use opentelemetry::trace::TracerProvider as _;
 use opentelemetry::{KeyValue, global};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::error::OTelSdkError;
 use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler, SdkTracerProvider};
 use std::sync::OnceLock;
 use std::time::Duration;
+use tracing::{info, warn};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -81,10 +83,16 @@ pub(crate) fn is_tracer_provider_set() -> bool {
     TRACER_PROVIDER.get().is_some()
 }
 
+// Sends the spans still waiting in the batch (the exporter only sends every few seconds),
+// then stops the exporter. Called once, at the very end of service_starter().
 pub fn shutdown_telemetry() {
-    if let Some(provider) = TRACER_PROVIDER.get()
-        && let Err(e) = provider.shutdown()
-    {
-        eprintln!("Failed to shutdown tracer provider: {e}");
+    let Some(provider) = TRACER_PROVIDER.get() else {
+        return;
+    };
+    match provider.shutdown() {
+        Ok(()) => info!("telemetry flushed"),
+        // A second call: the first one already sent everything.
+        Err(OTelSdkError::AlreadyShutdown) => {}
+        Err(e) => warn!("telemetry flush failed, the last traces may be lost: {e}"),
     }
 }
