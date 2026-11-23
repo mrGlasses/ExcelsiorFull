@@ -123,3 +123,39 @@ async fn test_post_body_data() {
         ),
     }
 }
+
+/// OT-2: every /ping adds 1 to "excelsior.ping". A private provider with an in-memory
+/// exporter (not the global one), so other tests calling /ping at the same time can't
+/// change the count.
+#[test]
+fn test_count_ping_adds_one_per_call() {
+    use opentelemetry::metrics::MeterProvider as _;
+    use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
+    use opentelemetry_sdk::metrics::{InMemoryMetricExporter, SdkMeterProvider};
+
+    let exporter = InMemoryMetricExporter::default();
+    let provider = SdkMeterProvider::builder()
+        .with_periodic_exporter(exporter.clone())
+        .build();
+    let meter = provider.meter("excelsior");
+
+    for _ in 0..3 {
+        count_ping(&meter);
+    }
+    provider.force_flush().unwrap();
+
+    let mut total = 0;
+    for resource_metrics in exporter.get_finished_metrics().unwrap() {
+        for scope in resource_metrics.scope_metrics() {
+            for metric in scope.metrics() {
+                if metric.name() == "excelsior.ping"
+                    && let AggregatedMetrics::U64(MetricData::Sum(sum)) = metric.data()
+                {
+                    total = sum.data_points().map(|point| point.value()).sum();
+                }
+            }
+        }
+    }
+    assert_eq!(total, 3);
+    provider.shutdown().unwrap();
+}

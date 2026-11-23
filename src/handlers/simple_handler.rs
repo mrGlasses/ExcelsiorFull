@@ -5,11 +5,26 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+use opentelemetry::global;
+use opentelemetry::metrics::Meter;
 use tracing::{error, info, warn};
 
 pub async fn get_pong() -> Response {
     info!("PONG!");
+    // Asked for on every call, not kept in a static: the global meter is read when it's
+    // called, so one taken before the provider is set would stay a no-op forever.
+    count_ping(&global::meter("excelsior"));
     (StatusCode::OK, "PONG!").into_response()
+}
+
+// OT-2 demo counter: +1 per /ping. Grafana (Prometheus) shows it as excelsior_ping_total.
+// Takes the meter as a parameter so a test can count with its own private provider.
+pub fn count_ping(meter: &Meter) {
+    meter
+        .u64_counter("excelsior.ping")
+        .with_description("Calls to /ping")
+        .build()
+        .add(1, &[]);
 }
 
 pub async fn call_external_service() -> Response {
