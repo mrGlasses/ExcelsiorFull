@@ -4,6 +4,7 @@ use opentelemetry::{KeyValue, global};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::error::OTelSdkError;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::trace::{RandomIdGenerator, Sampler, SdkTracerProvider};
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -14,6 +15,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 static TRACER_PROVIDER: OnceLock<SdkTracerProvider> = OnceLock::new();
+static METER_PROVIDER: OnceLock<SdkMeterProvider> = OnceLock::new();
 
 pub fn init_telemetry() -> Result<SdkTracerProvider> {
     let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -40,6 +42,9 @@ pub fn init_telemetry() -> Result<SdkTracerProvider> {
         .build()
         .expect("Failed to build OTLP exporter - check OTEL_EXPORTER_OTLP_ENDPOINT");
 
+    // Metrics go to the same collector, with the same service name (OT-2).
+    init_metrics(&otlp_endpoint, resource.clone());
+
     let tracer_provider = SdkTracerProvider::builder()
         .with_batch_exporter(otlp_exporter)
         .with_resource(resource)
@@ -53,6 +58,26 @@ pub fn init_telemetry() -> Result<SdkTracerProvider> {
     let _ = TRACER_PROVIDER.set(tracer_provider.clone());
 
     Ok(tracer_provider)
+}
+
+// OT-2: counters and other metrics, exported over OTLP like the traces. The periodic
+// reader sends every 60s; OTEL_METRIC_EXPORT_INTERVAL (in milliseconds) changes that.
+fn init_metrics(otlp_endpoint: &str, resource: Resource) {
+    let metric_exporter = opentelemetry_otlp::MetricExporter::builder()
+        .with_tonic()
+        .with_endpoint(otlp_endpoint)
+        .with_timeout(Duration::from_secs(10))
+        .build()
+        .expect("Failed to build OTLP metric exporter - check OTEL_EXPORTER_OTLP_ENDPOINT");
+
+    let meter_provider = SdkMeterProvider::builder()
+        .with_periodic_exporter(metric_exporter)
+        .with_resource(resource)
+        .build();
+
+    global::set_meter_provider(meter_provider.clone());
+    // Same rule as the tracer: the first one is kept, so shutdown_telemetry() can flush it.
+    let _ = METER_PROVIDER.set(meter_provider);
 }
 
 pub fn setup_tracing_with_otel() {
@@ -83,16 +108,33 @@ pub(crate) fn is_tracer_provider_set() -> bool {
     TRACER_PROVIDER.get().is_some()
 }
 
-// Sends the spans still waiting in the batch (the exporter only sends every few seconds),
-// then stops the exporter. Called once, at the very end of service_starter().
+#[cfg(test)]
+pub(crate) fn is_meter_provider_set() -> bool {
+    METER_PROVIDER.get().is_some()
+}
+
+// Sends what is still waiting (spans go out every few seconds, metrics every minute),
+// then stops the exporters. Called once, at the very end of service_starter().
 pub fn shutdown_telemetry() {
-    let Some(provider) = TRACER_PROVIDER.get() else {
-        return;
-    };
-    match provider.shutdown() {
-        Ok(()) => info!("telemetry flushed"),
-        // A second call: the first one already sent everything.
-        Err(OTelSdkError::AlreadyShutdown) => {}
-        Err(e) => warn!("telemetry flush failed, the last traces may be lost: {e}"),
+    let results = [
+        ("traces", TRACER_PROVIDER.get().map(|p| p.shutdown())),
+        ("metrics", METER_PROVIDER.get().map(|p| p.shutdown())),
+    ];
+
+    let mut flushed = false;
+    let mut failed = false;
+    for (what, result) in results {
+        match result {
+            Some(Ok(())) => flushed = true,
+            // Never initialized, or a second call: the first one already sent everything.
+            None | Some(Err(OTelSdkError::AlreadyShutdown)) => {}
+            Some(Err(e)) => {
+                failed = true;
+                warn!("telemetry flush failed, the last {what} may be lost: {e}");
+            }
+        }
+    }
+    if flushed && !failed {
+        info!("telemetry flushed");
     }
 }

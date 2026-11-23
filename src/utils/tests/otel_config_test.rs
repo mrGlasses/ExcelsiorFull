@@ -120,3 +120,12 @@ async fn test_init_telemetry_populates_shutdown_target() {
     let _ = init_telemetry();
     assert!(is_tracer_provider_set());
 }
+
+/// OT-2: init_telemetry() also starts the metrics export, so shutdown_telemetry() can
+/// flush the last counts too.
+#[tokio::test]
+#[serial]
+async fn test_init_telemetry_populates_metrics_shutdown_target() {
+    let _ = init_telemetry();
+    assert!(is_meter_provider_set());
+}
