@@ -33,6 +33,10 @@ opentelemetry_sdk = { version = "0.32.1", features = ["trace", "metrics", "logs"
 opentelemetry-otlp = { version = "0.32.0", features = ["trace", "metrics", "logs", "grpc-tonic"] }
 tracing-opentelemetry = "0.33.0"
 
+##i18n (EX0035): Fluent message files in i18n/, one per language
+fluent-bundle = "0.16.0"
+unic-langid = "0.9.6"
+
 [dev-dependencies]
 axum = { version = "0.8.8"}
 tokio = { version = "1.0", features = ["full", "test-util"] }
@@ -41,6 +45,8 @@ mockall = "0.14.0"
 serial_test = "3.2"
 # InMemoryMetricExporter for the metrics tests (OT-2); tests only, not in the app binary.
 opentelemetry_sdk = { version = "0.32.1", features = ["testing"] }
+# Parses the .ftl files in the missing-translation test (I18N-3).
+fluent-syntax = "0.12.0"
 
 # ============================================
 # Build Profiles Optimization

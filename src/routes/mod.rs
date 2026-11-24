@@ -1,6 +1,7 @@
 // One file per feature, each with `pub fn routes() -> Router<AppState>`, merged below.
 // To add routes: a new `<feature>_routes.rs`, one `pub mod` line and one `.merge` line.
 pub mod cache_routes;
+pub mod i18n_routes;
 pub mod outbox_routes;
 pub mod simple_routes;
 pub mod user_routes;
@@ -23,6 +24,7 @@ pub fn create_routes(state: AppState) -> Router {
         .merge(user_routes::routes())
         .merge(cache_routes::routes())
         .merge(outbox_routes::routes())
+        .merge(i18n_routes::routes())
         .layer((
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
