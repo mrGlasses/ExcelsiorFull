@@ -3,7 +3,9 @@ use crate::database::redis_connection::init_cache;
 use crate::engine::cache_engine::CachePool;
 use crate::engine::db_engine::DbPool;
 use crate::engine::telegram_engine::{DEFAULT_TELEGRAM_API_URL, TelegramApi};
-use crate::handlers::outbox_handler::{outbox_settings_from, run_outbox_worker};
+use crate::handlers::outbox_handler::{
+    OutboxSettings, outbox_settings_from, retry_base_from, run_outbox_worker,
+};
 use crate::handlers::telegram_handler::{POLL_TIMEOUT_SECS, run_telegram_bot};
 use crate::handlers::worker_handler::{heartbeat_loop, stuck_loop};
 use crate::routes::create_routes;
@@ -47,7 +49,10 @@ pub async fn service_starter() -> bool {
     let cache_pool = init_cache().await.expect("Failed to connect to Redis");
     // The outbox worker gets its own handle to the pool (a Pool is a cheap, shared handle).
     let outbox_pool = db_pool.clone();
-    let outbox_settings = outbox_settings_from(std::env::var("OUTBOX_MAX_ATTEMPTS").ok());
+    let outbox_settings = OutboxSettings {
+        retry_base: retry_base_from(std::env::var("OUTBOX_RETRY_BASE_SECS").ok()),
+        ..outbox_settings_from(std::env::var("OUTBOX_MAX_ATTEMPTS").ok())
+    };
     let app_state = state::AppState {
         db_pool: Arc::new(DbPool::Real(db_pool)),
         cache_pool: Arc::new(CachePool::Real(cache_pool)),

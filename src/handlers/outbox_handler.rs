@@ -21,11 +21,15 @@ pub const DEFAULT_MAX_ATTEMPTS: i32 = 10;
 // Even with no notification, look at the table this often (catches anything missed
 // while the listener reconnects, and retries failing events).
 pub const DEFAULT_RECHECK_INTERVAL: Duration = Duration::from_secs(5);
+// Used when OUTBOX_RETRY_BASE_SECS is not set (HFEX0004). A failed event waits
+// base * 2^(attempts - 1) before its next try, at most an hour (see migration 0005).
+pub const DEFAULT_RETRY_BASE: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutboxSettings {
     pub max_attempts: i32,
     pub recheck_interval: Duration,
+    pub retry_base: Duration,
 }
 
 // Settings from the OUTBOX_MAX_ATTEMPTS value; unset means the default.
@@ -40,6 +44,19 @@ pub fn outbox_settings_from(max_attempts: Option<String>) -> OutboxSettings {
     OutboxSettings {
         max_attempts,
         recheck_interval: DEFAULT_RECHECK_INTERVAL,
+        retry_base: DEFAULT_RETRY_BASE,
+    }
+}
+
+// The first retry delay from the OUTBOX_RETRY_BASE_SECS value; unset means the default.
+// 0 is allowed: retry on the next pass (the old behavior, handy in tests).
+pub fn retry_base_from(value: Option<String>) -> Duration {
+    match value {
+        None => DEFAULT_RETRY_BASE,
+        Some(text) => match text.trim().parse::<u64>() {
+            Ok(seconds) => Duration::from_secs(seconds),
+            _ => panic!("OUTBOX_RETRY_BASE_SECS must be a whole number of seconds (0 or more)."),
+        },
     }
 }
 
@@ -141,7 +158,15 @@ pub async fn handle_pending_events(
                     "event {} failed (attempt {}): {}",
                     event.id, event.attempts, message
                 );
-                if mark_failed(&mut tx, event.id, &message, settings.max_attempts).await? {
+                if mark_failed(
+                    &mut tx,
+                    event.id,
+                    &message,
+                    settings.max_attempts,
+                    settings.retry_base,
+                )
+                .await?
+                {
                     error!(
                         "event {} gave up after {} attempts",
                         event.id, event.attempts
