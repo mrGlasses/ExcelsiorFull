@@ -1,6 +1,7 @@
 pub mod cache_handler;
 pub mod db_handler;
 pub mod discord_handler;
+pub mod i18n_handler;
 pub mod outbox_handler;
 pub mod simple_handler;
 pub mod telegram_handler;
