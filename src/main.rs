@@ -1,12 +1,6 @@
-use crate::utils::main_utils::service_starter;
-
-mod database;
-mod domain;
-mod engine;
-mod handlers;
-mod routes;
-mod state;
-mod utils;
+// The binary only starts the app. The modules live in the library (src/lib.rs): declaring
+// them here too compiled everything, and ran every unit test, twice (HFEX0004).
+use ms1::utils::main_utils::service_starter;
 
 #[tokio::main]
 async fn main() {
